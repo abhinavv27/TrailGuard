@@ -66,8 +66,8 @@ export default function DashboardPage() {
       color: "text-cyan-400",
     },
     {
-      label: "Analyzed Datasets",
-      value: summary?.analyzed_datasets ?? 0,
+      label: "Total Datasets",
+      value: summary?.total_datasets ?? 0,
       icon: Database,
       color: "text-blue-400",
     },
@@ -209,23 +209,8 @@ export default function DashboardPage() {
         <h3 className="text-sm font-medium text-slate-300 mb-4">High-Risk Network Clusters</h3>
         {isLoading ? (
           <TableSkeleton rows={3} />
-        ) : summary?.high_risk_clusters?.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {summary.high_risk_clusters.map((cluster: any, idx: number) => (
-              <div key={idx} className="bg-navy-700/50 rounded-lg p-4 border border-navy-600">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-slate-200">{cluster.label || `Cluster ${idx + 1}`}</span>
-                  <Badge variant={cluster.risk?.toLowerCase() || "high"}>{cluster.risk || "HIGH"}</Badge>
-                </div>
-                <p className="text-xs text-slate-500">{cluster.account_count || 0} accounts involved</p>
-                <p className="text-xs text-slate-500">
-                  Volume: ${(cluster.total_volume || 0).toLocaleString()}
-                </p>
-              </div>
-            ))}
-          </div>
         ) : (
-          <p className="text-sm text-slate-500">No high-risk clusters identified</p>
+          <p className="text-sm text-slate-500">Run analysis on a dataset to identify high-risk clusters</p>
         )}
       </Card>
     </AppShell>

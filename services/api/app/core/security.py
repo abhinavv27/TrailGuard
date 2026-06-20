@@ -1,26 +1,23 @@
-import hashlib
-import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 from app.core.config import settings
 
 security_scheme = HTTPBearer()
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    salt = secrets.token_hex(16)
-    pw_hash = hashlib.sha256((salt + password).encode()).hexdigest()
-    return f"{salt}${pw_hash}"
+    return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        salt, pw_hash = hashed_password.split("$")
-        return hashlib.sha256((salt + plain_password).encode()).hexdigest() == pw_hash
+        return pwd_context.verify(plain_password, hashed_password)
     except (ValueError, AttributeError):
         return False
 

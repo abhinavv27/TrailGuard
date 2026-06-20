@@ -45,10 +45,13 @@ class RiskEngine:
     """
     Combines multiple detection signals into a unified risk assessment.
     Score composition:
-      - 30% Anomaly score (statistical outliers)
-      - 30% AML pattern severity (known fraud patterns)
-      - 25% Graph/network risk (connections to other risky entities)
-      - 15% Temporal/velocity risk (unusual timing patterns)
+      - 25% Mule detection (fan-in/fan-out funnel accounts)
+      - 15% Layering detection (multi-hop money chains)
+      - 15% Anomaly score (statistical outliers via Isolation Forest)
+      - 15% Counterparty risk (sudden counterparty expansion)
+      - 10% Cycle detection (circular flow patterns)
+      - 10% Structuring detection (smurfing near-threshold deposits)
+      - 10% Velocity detection (unusual transaction frequency)
     """
 
     def __init__(self):

@@ -1,3 +1,5 @@
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -23,6 +25,38 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Cache-Control"] = "no-store"
+    if settings.DEMO_MODE:
+        response.headers["X-Demo-Mode"] = "true"
+    return response
+
+
+request_counts: dict = defaultdict(list)
+
+@app.middleware("http")
+async def rate_limiter(request: Request, call_next):
+    if request.url.path in ("/api/v1/auth/login", "/api/v1/datasets/upload"):
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        request_counts[client_ip] = [t for t in request_counts[client_ip] if now - t < 60]
+        max_requests = 10 if "/login" in request.url.path else 30
+        if len(request_counts[client_ip]) >= max_requests:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests", "code": "RATE_LIMITED"},
+            )
+        request_counts[client_ip].append(now)
+    return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,

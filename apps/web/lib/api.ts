@@ -17,6 +17,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return res.json()
 }
 
+async function unwrapItems<T>(response: any): Promise<T[]> {
+  return response.items || response || []
+}
+
 export const api = {
   auth: {
     login: (data: { email: string; password: string }) =>
@@ -39,18 +43,27 @@ export const api = {
         body: formData,
       }).then(r => r.json())
     },
-    list: () => fetchAPI<any[]>('/api/v1/datasets'),
+    list: async () => {
+      const res = await fetchAPI<any>('/api/v1/datasets')
+      return unwrapItems<any>(res)
+    },
     get: (id: string) => fetchAPI<any>(`/api/v1/datasets/${id}`),
     analyze: (id: string) => fetchAPI<any>(`/api/v1/datasets/${id}/analyze`, { method: 'POST' }),
   },
   alerts: {
-    list: (params?: string) => fetchAPI<any[]>(`/api/v1/alerts?${params || ''}`),
+    list: async (params?: string) => {
+      const res = await fetchAPI<any>(`/api/v1/alerts?${params || ''}`)
+      return unwrapItems<any>(res)
+    },
     get: (id: string) => fetchAPI<any>(`/api/v1/alerts/${id}`),
     createCase: (id: string) => fetchAPI<any>(`/api/v1/alerts/${id}/create-case`, { method: 'POST' }),
   },
   accounts: {
     get: (id: string) => fetchAPI<any>(`/api/v1/accounts/${id}`),
-    transactions: (id: string) => fetchAPI<any[]>(`/api/v1/accounts/${id}/transactions`),
+    transactions: async (id: string) => {
+      const res = await fetchAPI<any>(`/api/v1/accounts/${id}/transactions`)
+      return res.transactions || res || []
+    },
     risk: (id: string) => fetchAPI<any>(`/api/v1/accounts/${id}/risk`),
     graph: (id: string) => fetchAPI<any>(`/api/v1/accounts/${id}/graph`),
   },
@@ -60,7 +73,10 @@ export const api = {
     traceDestination: (data: any) => fetchAPI<any>('/api/v1/graph/trace-destination', { method: 'POST', body: JSON.stringify(data) }),
   },
   cases: {
-    list: () => fetchAPI<any[]>('/api/v1/cases'),
+    list: async () => {
+      const res = await fetchAPI<any>('/api/v1/cases')
+      return unwrapItems<any>(res)
+    },
     create: (data: any) => fetchAPI<any>('/api/v1/cases', { method: 'POST', body: JSON.stringify(data) }),
     get: (id: string) => fetchAPI<any>(`/api/v1/cases/${id}`),
     update: (id: string, data: any) => fetchAPI<any>(`/api/v1/cases/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),

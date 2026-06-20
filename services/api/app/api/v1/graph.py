@@ -17,13 +17,17 @@ from app.schemas.graph import (
 router = APIRouter(prefix="/graph", tags=["graph"])
 
 
-@router.get("/explore", response_model=GraphExploreResponse)
+@router.post("/explore", response_model=GraphExploreResponse)
 def explore_graph(
-    account_id: str,
-    hops: int = 2,
+    request: GraphExploreRequest,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    account_id = request.account_id
+    hops = request.hops or 2
+    if not account_id:
+        return GraphExploreResponse(nodes=[], links=[])
+
     account = db.query(Account).filter(Account.id == account_id).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -91,7 +95,7 @@ def explore_graph(
         if not current_level:
             break
 
-    return GraphExploreResponse(nodes=list(nodes.values()), edges=edges)
+    return GraphExploreResponse(nodes=list(nodes.values()), links=edges)
 
 
 @router.post("/trace-source", response_model=TraceResponse)
