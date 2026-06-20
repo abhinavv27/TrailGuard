@@ -21,6 +21,7 @@ class GraphEdge(BaseModel):
     source: str
     target: str
     label: str = ""
+    type: str = "normal"
     metadata: dict = {}
 
 

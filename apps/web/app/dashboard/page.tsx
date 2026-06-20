@@ -190,8 +190,8 @@ export default function DashboardPage() {
                   onClick={() => router.push(`/alerts`)}
                 >
                   <div>
-                    <p className="text-sm text-slate-200 font-medium">{alert.title || alert.alert_type}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{alert.account_id}</p>
+                    <p className="text-sm text-slate-200 font-medium">{alert.title || alert.event_type || alert.alert_type || "Alert"}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{alert.entity_id || alert.account_id}</p>
                   </div>
                   <Badge variant={alert.severity?.toLowerCase() || "medium"}>
                     {alert.severity || "UNKNOWN"}

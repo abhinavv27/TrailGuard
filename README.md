@@ -83,6 +83,25 @@ trailguard-ai/
 
 See [SECURITY.md](SECURITY.md) for full security policy.
 
+## Troubleshooting & Known Fixes (Workarounds)
+
+If you are running into issues with the graph or missing data, the following fixes have been applied and should be noted:
+
+### 1. Missing `metrics_json` Column in Database
+If you encounter a `sqlite3.OperationalError: no such column: graph_metrics.metrics_json` crash when loading an Account Intelligence Profile, your local SQLite database is missing a column that the backend expects.
+**Workaround/Fix:** We have run a raw SQL migration to add this column (`ALTER TABLE graph_metrics ADD COLUMN metrics_json JSON;`). If you reset your database, ensure Alembic migrations are fully applied using `alembic upgrade head`.
+
+### 2. Demo Scenario "Zero Values" Issue
+If you inject the Demo Scenario, the generated accounts may show `$0` for Incoming/Outgoing values. This occurred because the demo script did not pre-calculate `GraphMetrics`.
+**Fix Applied:** The backend `/api/v1/accounts/{id}` endpoint now features a dynamic fallback. If `GraphMetrics` are missing, it calculates the incoming/outgoing values and unique counterparties directly from the raw `Transaction` tables on the fly.
+
+### 3. Blank Graph & React-Force-Graph Freezing
+If the graph exploration page appears empty but stats show nodes exist, this is caused by `react-query` freezing the state data, preventing the `d3-force` physics engine from assigning `x` and `y` coordinates.
+**Fix Applied:** The `graphData` object passed into `<ForceGraph2D />` must be deeply cloned (`JSON.parse(JSON.stringify(graphData))`) to allow the physics engine to safely mutate the nodes.
+
+### 4. Mule Money Trail Toggle Not Highlighting
+If turning on the "Mule Money Trail" does nothing, ensure the `GraphEdge` Pydantic schema in the backend includes the `type: str = "normal"` field. Without it, the "suspicious" flag is stripped during serialization, preventing the frontend from applying the red highlights.
+
 ## License
 
 TrailGuard AI is open source under the MIT License. See [NOTICE.md](NOTICE.md) for third-party attribution.

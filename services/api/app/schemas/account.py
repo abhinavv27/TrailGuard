@@ -10,6 +10,9 @@ class AccountResponse(BaseModel):
     country: str | None = None
     risk_score: float = 0.0
     risk_level: str = "low"
+    metrics: dict | None = None
+    patterns: list[dict] | None = None
+    evidence: list[dict] | None = None
 
     model_config = {"from_attributes": True}
 

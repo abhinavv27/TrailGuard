@@ -54,7 +54,11 @@ function getNodeColor(node: GraphNode): string {
   return "#64748b"
 }
 
-function getLinkColor(link: GraphLink): string {
+function getLinkColor(link: GraphLink, muleMode: boolean): string {
+  if (muleMode) {
+    if (link.type === "suspicious") return "#ef4444"
+    return "#1e293b" // Faded out
+  }
   if (link.type === "suspicious") return "#f87171"
   if (link.type === "high_value") return "#fb923c"
   return "#334155"
@@ -141,9 +145,12 @@ export default function GraphPage() {
             <div className="absolute inset-0">
               <ForceGraph2D
                 ref={graphRef}
-                graphData={{ nodes: graphData.nodes, links: graphData.links }}
+                graphData={{ 
+                  nodes: JSON.parse(JSON.stringify(graphData.nodes)), 
+                  links: JSON.parse(JSON.stringify(graphData.links)) 
+                }}
                 nodeColor={(node: any) => getNodeColor(node)}
-                linkColor={(link: any) => getLinkColor(link)}
+                linkColor={(link: any) => getLinkColor(link, muleMode)}
                 nodeLabel={(node: any) => node.label || node.id}
                 linkLabel={(link: any) => `$${link.value?.toLocaleString() || ""}`}
                 onNodeClick={(node: any) => setSelectedNode(node)}

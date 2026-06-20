@@ -104,17 +104,17 @@ export default function AlertsPage() {
                         }
                       />
                       <h3 className="text-sm font-medium text-slate-200">
-                        {alert.title || alert.alert_type || "Suspicious Activity Detected"}
+                        {alert.title || alert.event_type || alert.alert_type || "Suspicious Activity Detected"}
                       </h3>
                       <Badge variant={alert.severity?.toLowerCase()}>
                         {alert.severity || "UNKNOWN"}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-4 text-xs text-slate-500">
-                      <span>Account: {alert.account_id || "N/A"}</span>
-                      <span>Detector: {alert.detector_type || "N/A"}</span>
-                      {alert.score !== undefined && (
-                        <span>Score: {(alert.score * 100).toFixed(0)}%</span>
+                      <span>Entity: {alert.entity_id || alert.account_id || "N/A"}</span>
+                      <span>Detector: {alert.detector_type || alert.event_type || "N/A"}</span>
+                      {(alert.score !== undefined || alert.risk_score !== undefined) && (
+                        <span>Score: {((alert.score ?? alert.risk_score) * 100).toFixed(0)}%</span>
                       )}
                     </div>
                     {alert.reason_codes && alert.reason_codes.length > 0 && (
@@ -133,7 +133,7 @@ export default function AlertsPage() {
                   <div className="flex items-center gap-2 ml-4">
                     <Button
                       size="sm"
-                      onClick={() => router.push(`/accounts/${alert.account_id}`)}
+                      onClick={() => router.push(`/accounts/${alert.entity_id || alert.account_id}`)}
                       variant="ghost"
                     >
                       View Account

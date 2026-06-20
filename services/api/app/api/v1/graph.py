@@ -26,7 +26,30 @@ def explore_graph(
     account_id = request.account_id
     hops = request.hops or 2
     if not account_id:
-        return GraphExploreResponse(nodes=[], links=[])
+        # Global graph exploration
+        txns = db.query(Transaction).order_by(Transaction.timestamp.desc()).limit(request.max_nodes or 50).all()
+        nodes = {}
+        edges = []
+        for txn in txns:
+            sid = str(txn.sender_account_id)
+            rid = str(txn.receiver_account_id)
+            if sid not in nodes:
+                s = db.query(Account).filter(Account.id == sid).first()
+                nodes[sid] = GraphNode(id=sid, label=s.masked_account_ref if s else sid, type="account")
+            if rid not in nodes:
+                r = db.query(Account).filter(Account.id == rid).first()
+                nodes[rid] = GraphNode(id=rid, label=r.masked_account_ref if r else rid, type="account")
+            
+            edges.append(
+                GraphEdge(
+                    source=sid,
+                    target=rid,
+                    label=f"{txn.amount} {txn.currency or ''}",
+                    metadata={"transaction_id": str(txn.id), "amount": txn.amount, "currency": txn.currency},
+                    type="suspicious" if txn.scenario else "normal"
+                )
+            )
+        return GraphExploreResponse(nodes=list(nodes.values()), links=edges)
 
     account = db.query(Account).filter(Account.id == account_id).first()
     if not account:

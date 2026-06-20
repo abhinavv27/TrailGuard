@@ -5,12 +5,8 @@ from app.core.security import get_current_user
 from app.db.session import get_db as _get_db
 
 
-def get_db():
-    _db = _get_db()
-    try:
-        yield _db
-    finally:
-        _db.close()
+# Re-export get_db
+get_db = _get_db
 
 
 ROLE_HIERARCHY = {

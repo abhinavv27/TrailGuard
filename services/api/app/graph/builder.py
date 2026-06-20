@@ -8,6 +8,9 @@ import networkx as nx
 class GraphBuilder:
     """Builds and analyzes transaction graphs."""
 
+    def __init__(self):
+        self._cycles_cache = None
+
     def build_graph(self, transactions: List[Dict]) -> nx.DiGraph:
         """Build a directed graph from transaction list."""
         G = nx.DiGraph()
@@ -50,10 +53,14 @@ class GraphBuilder:
 
     def find_cycles(self, G: nx.DiGraph) -> List[List[str]]:
         """Find all simple cycles in the graph."""
+        if self._cycles_cache is not None:
+            return self._cycles_cache
         try:
-            cycles = list(nx.simple_cycles(G))
+            cycles = list(nx.simple_cycles(G, length_bound=5))
+            self._cycles_cache = cycles
             return cycles
         except nx.NetworkXNoCycle:
+            self._cycles_cache = []
             return []
 
     def trace_source(

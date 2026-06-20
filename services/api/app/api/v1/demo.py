@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.dependencies import get_db
 from app.core.security import get_current_user
 from app.models.account import Account
+from app.models.dataset import Dataset
 from app.models.detection_event import DetectionEvent
 from app.models.risk_assessment import AccountRiskAssessment
 from app.models.transaction import Transaction
@@ -23,10 +24,24 @@ def inject_scenario(
     import random
     import uuid
     from datetime import datetime, timedelta, timezone
+    
+    # Create a dummy dataset
+    dataset = Dataset(
+        user_id=current_user.get("sub", ""),
+        filename="demo_scenario_injection.csv",
+        original_filename="demo_scenario_injection.csv",
+        file_size=1024,
+        file_hash=uuid.uuid4().hex,
+        row_count=20,
+        status="analyzed",
+    )
+    db.add(dataset)
+    db.flush()
 
     account_ids = []
     for i in range(5):
         account = Account(
+            dataset_id=dataset.id,
             external_account_ref=f"DEMO-ACC-{i:04d}",
             masked_account_ref=f"****{i:04d}",
             country=random.choice(["US", "GB", "RU", "CN", "CH"]),
@@ -40,6 +55,7 @@ def inject_scenario(
         sender = random.choice(account_ids)
         receiver = random.choice([a for a in account_ids if a != sender])
         txn = Transaction(
+            dataset_id=dataset.id,
             external_transaction_ref=f"TXN-{uuid.uuid4().hex[:8].upper()}",
             timestamp=datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 720)),
             sender_account_id=sender,
@@ -76,6 +92,7 @@ def inject_scenario(
 
     for acc_id in account_ids[:3]:
         event = DetectionEvent(
+            dataset_id=dataset.id,
             event_type=random.choice(["structuring", "rapid_movement", "high_risk_geography"]),
             severity=random.choice(["low", "medium", "high", "critical"]),
             entity_type="account",

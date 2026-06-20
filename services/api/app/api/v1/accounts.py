@@ -33,13 +33,79 @@ def get_account(
         .first()
     )
 
+    from app.models.graph_metrics import GraphMetrics
+    graph_metrics = (
+        db.query(GraphMetrics)
+        .filter(GraphMetrics.account_id == account_id)
+        .order_by(GraphMetrics.created_at.desc())
+        .first()
+    )
+
+    metrics = {}
+    if graph_metrics:
+        metrics = {
+            "degree_centrality": graph_metrics.in_degree_centrality + graph_metrics.out_degree_centrality,
+            "betweenness": graph_metrics.betweenness_centrality,
+            "page_rank": 0.0,
+            "clustering_coefficient": 0.0,
+            "incoming_value": graph_metrics.in_total_value,
+            "outgoing_value": graph_metrics.out_total_value,
+            "unique_counterparties": graph_metrics.in_unique_counterparties + graph_metrics.out_unique_counterparties,
+            "avg_holding_time": 0,
+        }
+    else:
+        from sqlalchemy import func
+        from app.models.transaction import Transaction
+        in_value = db.query(func.sum(Transaction.amount)).filter(Transaction.receiver_account_id == account_id).scalar() or 0.0
+        out_value = db.query(func.sum(Transaction.amount)).filter(Transaction.sender_account_id == account_id).scalar() or 0.0
+        in_senders = db.query(func.count(func.distinct(Transaction.sender_account_id))).filter(Transaction.receiver_account_id == account_id).scalar() or 0
+        out_receivers = db.query(func.count(func.distinct(Transaction.receiver_account_id))).filter(Transaction.sender_account_id == account_id).scalar() or 0
+        
+        metrics = {
+            "degree_centrality": in_senders + out_receivers,
+            "betweenness": 0.0,
+            "page_rank": 0.0,
+            "clustering_coefficient": 0.0,
+            "incoming_value": in_value,
+            "outgoing_value": out_value,
+            "unique_counterparties": in_senders + out_receivers,
+            "avg_holding_time": 0,
+        }
+
+    patterns = []
+    evidence = []
+    if assessment:
+        reasons_data = assessment.reason_codes_json or {}
+        reasons_list = reasons_data.get("reasons", []) if isinstance(reasons_data, dict) else reasons_data
+        if isinstance(reasons_list, list):
+            for reason in reasons_list:
+                sev = reason.get("severity", 0.0) if isinstance(reason, dict) else 0.0
+                sev_label = "critical" if sev >= 0.8 else "high" if sev >= 0.6 else "medium" if sev >= 0.3 else "low"
+                patterns.append({
+                    "type": reason.get("code", "UNKNOWN") if isinstance(reason, dict) else "UNKNOWN",
+                    "name": reason.get("description", "Unknown Pattern") if isinstance(reason, dict) else str(reason),
+                    "severity": sev_label
+                })
+        
+        comp_scores = assessment.component_scores_json or {}
+        if isinstance(comp_scores, dict):
+            for comp, score in comp_scores.items():
+                if score > 0:
+                    evidence.append({
+                        "title": f"{comp.capitalize()} Detector",
+                        "description": f"Triggered with confidence score {score}%"
+                    })
+
     return AccountResponse(
         id=str(account.id),
         external_account_ref=account.external_account_ref,
         masked_account_ref=account.masked_account_ref,
         country=account.country,
-        risk_score=assessment.risk_score if assessment else 0.0,
+        risk_score=(assessment.risk_score / 100.0) if assessment else 0.0,
         risk_level=assessment.risk_level if assessment else "low",
+        metrics=metrics,
+        patterns=patterns,
+        evidence=evidence
     )
 
 
@@ -108,8 +174,11 @@ def get_account_risk(
             external_account_ref=account.external_account_ref,
             masked_account_ref=account.masked_account_ref,
             country=account.country,
-            risk_score=assessment.risk_score if assessment else 0.0,
+            risk_score=(assessment.risk_score / 100.0) if assessment else 0.0,
             risk_level=assessment.risk_level if assessment else "low",
+            metrics=None,
+            patterns=None,
+            evidence=None
         ),
         risk_assessment={
             "risk_score": assessment.risk_score,

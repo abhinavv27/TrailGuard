@@ -26,6 +26,7 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url="/docs" if settings.DEMO_MODE else None,
     redoc_url="/redoc" if settings.DEMO_MODE else None,
+    debug=True,
 )
 
 
@@ -69,6 +70,11 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.get("/")
+def read_root():
+    return {"message": "TrailGuard AI API is running"}
 
 
 @app.exception_handler(Exception)

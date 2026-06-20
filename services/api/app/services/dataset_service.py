@@ -187,11 +187,23 @@ class DatasetService:
             } for t in transactions]
             G = builder.build_graph(tx_dicts_all)
 
+            # Pre-group transactions by account to avoid O(N*M) complexity
+            txs_by_account = {}
+            for t in transactions:
+                sender_id = str(t.sender_account_id)
+                receiver_id = str(t.receiver_account_id)
+                if sender_id not in txs_by_account:
+                    txs_by_account[sender_id] = []
+                if receiver_id not in txs_by_account:
+                    txs_by_account[receiver_id] = []
+                txs_by_account[sender_id].append(t)
+                if sender_id != receiver_id:
+                    txs_by_account[receiver_id].append(t)
+
             alert_count = 0
             for account in accounts:
-                account_txs = [t for t in transactions if
-                              str(t.sender_account_id) == str(account.id) or
-                              str(t.receiver_account_id) == str(account.id)]
+                account_id_str = str(account.id)
+                account_txs = txs_by_account.get(account_id_str, [])
                 tx_dicts = [{
                     "id": str(t.id), "amount": t.amount, "timestamp": str(t.timestamp),
                     "sender_account_id": str(t.sender_account_id),
