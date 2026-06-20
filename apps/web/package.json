@@ -19,7 +19,7 @@
     "react-hook-form": "^7.0",
     "@hookform/resolvers": "^3.0",
     "zod": "^3.0",
-    "lucide-react": "^0.450",
+    "lucide-react": "^1.21.0",
     "recharts": "^2.12",
     "react-force-graph-2d": "^1.25",
     "clsx": "^2.1",
