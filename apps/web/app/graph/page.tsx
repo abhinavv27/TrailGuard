@@ -1,0 +1,283 @@
+"use client"
+
+import { useState, useCallback, useRef, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { api } from "@/lib/api"
+import { Card } from "@/components/ui/Card"
+import { Button } from "@/components/ui/Button"
+import { Badge } from "@/components/ui/Badge"
+import { ErrorState } from "@/components/ui/ErrorState"
+import { AppShell } from "@/components/layout/AppShell"
+import {
+  Share2,
+  Target,
+  Crosshair,
+  ToggleLeft,
+  ToggleRight,
+  Info,
+  Layers,
+  Clock,
+  X,
+} from "lucide-react"
+import { toast } from "sonner"
+
+interface GraphNode {
+  id: string
+  label?: string
+  type?: string
+  risk?: string
+  value?: number
+}
+
+interface GraphLink {
+  source: string
+  target: string
+  value?: number
+  type?: string
+  timestamp?: string
+}
+
+interface GraphData {
+  nodes: GraphNode[]
+  links: GraphLink[]
+}
+
+function getNodeColor(node: GraphNode): string {
+  if (node.risk === "critical") return "#f87171"
+  if (node.risk === "high") return "#fb923c"
+  if (node.risk === "medium") return "#fbbf24"
+  if (node.type === "account") return "#22d3ee"
+  if (node.type === "transaction") return "#a78bfa"
+  return "#64748b"
+}
+
+function getLinkColor(link: GraphLink): string {
+  if (link.type === "suspicious") return "#f87171"
+  if (link.type === "high_value") return "#fb923c"
+  return "#334155"
+}
+
+export default function GraphPage() {
+  const [exploreParams, setExploreParams] = useState<any>({ depth: 2, max_nodes: 50 })
+  const [showLegend, setShowLegend] = useState(true)
+  const [muleMode, setMuleMode] = useState(false)
+  const [selectedNode, setSelectedNode] = useState<any>(null)
+  const [timeWindow, setTimeWindow] = useState(90)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const graphRef = useRef<any>(null)
+
+  const { data: graphData, isLoading, error, refetch } = useQuery<GraphData>({
+    queryKey: ["graph-explore", exploreParams],
+    queryFn: () => api.graph.explore(exploreParams),
+    enabled: false,
+  })
+
+  const handleTraceSource = async (accountId?: string) => {
+    const id = accountId || selectedNode?.id
+    if (!id) { toast.error("Select an account first"); return }
+    try {
+      const data = await api.graph.traceSource({ account_id: id, depth: 3 })
+      setExploreParams({ ...exploreParams, ...data })
+      toast.success("Source trace complete")
+    } catch { toast.error("Trace failed") }
+  }
+
+  const handleTraceDestination = async (accountId?: string) => {
+    const id = accountId || selectedNode?.id
+    if (!id) { toast.error("Select an account first"); return }
+    try {
+      const data = await api.graph.traceDestination({ account_id: id, depth: 3 })
+      setExploreParams({ ...exploreParams, ...data })
+      toast.success("Destination trace complete")
+    } catch { toast.error("Trace failed") }
+  }
+
+  useEffect(() => {
+    refetch()
+  }, [exploreParams])
+
+  if (error) {
+    return (
+      <AppShell>
+        <ErrorState title="Failed to load graph" onRetry={() => refetch()} />
+      </AppShell>
+    )
+  }
+
+  return (
+    <AppShell>
+      <div className="flex h-[calc(100vh-7rem)] -mx-6 -mb-6">
+        <div className="flex-1 relative bg-navy-900" ref={containerRef}>
+          <div className="absolute inset-0 flex items-center justify-center">
+            {isLoading ? (
+              <div className="text-slate-500 flex flex-col items-center gap-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400" />
+                <span className="text-sm">Loading graph...</span>
+              </div>
+            ) : graphData && graphData.nodes?.length > 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center p-8">
+                  <Share2 size={48} className="text-cyan-400/30 mx-auto mb-4" />
+                  <p className="text-slate-400 text-sm">
+                    Graph visualization loaded ({graphData.nodes.length} nodes, {graphData.links.length} edges)
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Install react-force-graph-2d for interactive visualization
+                  </p>
+                  <div className="mt-4 flex gap-2 justify-center">
+                    <Button size="sm" variant="secondary" onClick={() => handleTraceSource()}>
+                      <Target size={14} className="mr-1" /> Trace Source
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => handleTraceDestination()}>
+                      <Crosshair size={14} className="mr-1" /> Trace Destination
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center p-8">
+                <Share2 size={48} className="text-slate-600 mx-auto mb-4" />
+                <p className="text-slate-400 text-sm">No graph data available</p>
+                <p className="text-xs text-slate-500 mt-1">Analyze datasets or inject demo data to populate the graph</p>
+                <Button className="mt-4" size="sm" onClick={() => refetch()}>
+                  Explore Graph
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="absolute top-4 left-4 z-10 flex gap-2">
+            <button
+              onClick={() => setShowLegend(!showLegend)}
+              className="bg-navy-800 border border-navy-600 rounded-lg px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1.5"
+            >
+              <Layers size={14} />
+              {showLegend ? "Hide" : "Show"} Legend
+            </button>
+            <button
+              onClick={() => setMuleMode(!muleMode)}
+              className={`rounded-lg px-3 py-1.5 text-xs flex items-center gap-1.5 border transition-colors ${
+                muleMode
+                  ? "bg-red-900/30 border-red-500/30 text-red-400"
+                  : "bg-navy-800 border-navy-600 text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {muleMode ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+              Mule Money Trail
+            </button>
+          </div>
+
+          {showLegend && (
+            <div className="absolute top-4 right-4 z-10 bg-navy-800 border border-navy-600 rounded-xl p-4 w-48">
+              <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Legend</h4>
+              <div className="space-y-2">
+                {[
+                  { color: "#22d3ee", label: "Account" },
+                  { color: "#a78bfa", label: "Transaction" },
+                  { color: "#f87171", label: "High Risk" },
+                  { color: "#fb923c", label: "Medium Risk" },
+                  { color: "#fbbf24", label: "Low Risk" },
+                  { color: "#334155", label: "Normal Flow" },
+                  { color: "#f87171", label: "Suspicious Flow" },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center gap-2 text-xs">
+                    <span
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="text-slate-400">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-navy-800 border border-navy-600 rounded-lg px-4 py-2 flex items-center gap-3">
+            <Clock size={14} className="text-slate-400" />
+            <input
+              type="range"
+              min={1}
+              max={365}
+              value={timeWindow}
+              onChange={(e) => setTimeWindow(Number(e.target.value))}
+              className="w-32 accent-cyan-500"
+            />
+            <span className="text-xs text-slate-400 w-16">{timeWindow} days</span>
+          </div>
+        </div>
+
+        <aside className="w-72 bg-navy-800 border-l border-navy-600 p-4 overflow-y-auto flex-shrink-0">
+          <h3 className="text-sm font-medium text-slate-300 mb-4">Graph Controls</h3>
+
+          {selectedNode && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-medium text-slate-400 uppercase">Selected Account</h4>
+                <button onClick={() => setSelectedNode(null)} className="text-slate-500 hover:text-slate-300">
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="bg-navy-700 rounded-lg p-3 mb-3">
+                <p className="text-sm font-medium text-slate-200">{selectedNode.label || selectedNode.id}</p>
+                <p className="text-xs text-slate-500">{selectedNode.id}</p>
+                {selectedNode.risk && <Badge variant={selectedNode.risk.toLowerCase()} className="mt-2">{selectedNode.risk}</Badge>}
+                {selectedNode.value && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Volume: ${Number(selectedNode.value).toLocaleString()}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Button size="sm" variant="secondary" className="w-full" onClick={() => handleTraceSource(selectedNode.id)}>
+                  <Target size={14} className="mr-1.5" /> Trace Source
+                </Button>
+                <Button size="sm" variant="secondary" className="w-full" onClick={() => handleTraceDestination(selectedNode.id)}>
+                  <Crosshair size={14} className="mr-1.5" /> Trace Destination
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="label">Max Nodes</label>
+              <input
+                type="number"
+                value={exploreParams.max_nodes || 50}
+                onChange={(e) => setExploreParams({ ...exploreParams, max_nodes: Number(e.target.value) })}
+                className="input w-full"
+                min={10}
+                max={200}
+              />
+            </div>
+            <div>
+              <label className="label">Trace Depth</label>
+              <input
+                type="number"
+                value={exploreParams.depth || 2}
+                onChange={(e) => setExploreParams({ ...exploreParams, depth: Number(e.target.value) })}
+                className="input w-full"
+                min={1}
+                max={6}
+              />
+            </div>
+            <Button className="w-full" onClick={() => refetch()}>
+              <Share2 size={16} className="mr-1.5" /> Update Graph
+            </Button>
+          </div>
+
+          {graphData && graphData.nodes?.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-navy-600">
+              <h4 className="text-xs font-medium text-slate-400 uppercase mb-2">Stats</h4>
+              <div className="space-y-1 text-xs text-slate-500">
+                <p>Nodes: {graphData.nodes.length}</p>
+                <p>Edges: {graphData.links.length}</p>
+                <p>Suspicious flows: {graphData.links.filter((l: any) => l.type === "suspicious").length}</p>
+              </div>
+            </div>
+          )}
+        </aside>
+      </div>
+    </AppShell>
+  )
+}

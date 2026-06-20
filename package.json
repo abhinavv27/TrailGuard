@@ -1,0 +1,19 @@
+{
+  "name": "trailguard-ai",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd services/api && uvicorn app.main:app --reload --port 8000",
+    "dev:frontend": "cd apps/web && npm run dev",
+    "install:backend": "cd services/api && pip install -r requirements.txt",
+    "install:frontend": "cd apps/web && npm install",
+    "db:migrate": "cd services/api && alembic upgrade head",
+    "db:seed": "cd services/api && python -m app.db.seed",
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "setup": "npm run install:backend && npm run install:frontend && npm run db:setup",
+    "test:backend": "cd services/api && pytest tests/ -v",
+    "test:frontend": "cd apps/web && npm test",
+    "lint:backend": "cd services/api && ruff check .",
+    "lint:frontend": "cd apps/web && npm run lint"
+  }
+}
