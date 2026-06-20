@@ -20,6 +20,9 @@ import {
   X,
 } from "lucide-react"
 import { toast } from "sonner"
+import dynamic from "next/dynamic"
+
+const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false })
 
 interface GraphNode {
   id: string
@@ -63,13 +66,13 @@ export default function GraphPage() {
   const [muleMode, setMuleMode] = useState(false)
   const [selectedNode, setSelectedNode] = useState<any>(null)
   const [timeWindow, setTimeWindow] = useState(90)
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<any>(null)
 
   const { data: graphData, isLoading, error, refetch } = useQuery<GraphData>({
     queryKey: ["graph-explore", exploreParams],
     queryFn: () => api.graph.explore(exploreParams),
-    enabled: false,
   })
 
   const handleTraceSource = async (accountId?: string) => {
@@ -96,6 +99,25 @@ export default function GraphPage() {
     refetch()
   }, [exploreParams])
 
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect()
+      setDimensions({ width: rect.width, height: rect.height })
+    }
+    updateSize()
+    const observer = new ResizeObserver(updateSize)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (graphRef.current && graphData?.nodes?.length) {
+      graphRef.current.zoomToFit(400)
+    }
+  }, [graphData])
+
   if (error) {
     return (
       <AppShell>
@@ -108,33 +130,33 @@ export default function GraphPage() {
     <AppShell>
       <div className="flex h-[calc(100vh-7rem)] -mx-6 -mb-6">
         <div className="flex-1 relative bg-navy-900" ref={containerRef}>
-          <div className="absolute inset-0 flex items-center justify-center">
-            {isLoading ? (
+          {isLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-slate-500 flex flex-col items-center gap-2">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400" />
                 <span className="text-sm">Loading graph...</span>
               </div>
-            ) : graphData && graphData.nodes?.length > 0 ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center p-8">
-                  <Share2 size={48} className="text-cyan-400/30 mx-auto mb-4" />
-                  <p className="text-slate-400 text-sm">
-                    Graph visualization loaded ({graphData.nodes.length} nodes, {graphData.links.length} edges)
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Install react-force-graph-2d for interactive visualization
-                  </p>
-                  <div className="mt-4 flex gap-2 justify-center">
-                    <Button size="sm" variant="secondary" onClick={() => handleTraceSource()}>
-                      <Target size={14} className="mr-1" /> Trace Source
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => handleTraceDestination()}>
-                      <Crosshair size={14} className="mr-1" /> Trace Destination
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ) : (
+            </div>
+          ) : graphData && graphData.nodes?.length > 0 ? (
+            <div className="absolute inset-0">
+              <ForceGraph2D
+                ref={graphRef}
+                graphData={{ nodes: graphData.nodes, links: graphData.links }}
+                nodeColor={(node: any) => getNodeColor(node)}
+                linkColor={(link: any) => getLinkColor(link)}
+                nodeLabel={(node: any) => node.label || node.id}
+                linkLabel={(link: any) => `$${link.value?.toLocaleString() || ""}`}
+                onNodeClick={(node: any) => setSelectedNode(node)}
+                width={dimensions.width}
+                height={dimensions.height}
+                linkDirectionalParticles={2}
+                linkDirectionalParticleSpeed={0.005}
+                nodeRelSize={6}
+                backgroundColor="#0f172a"
+              />
+            </div>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center p-8">
                 <Share2 size={48} className="text-slate-600 mx-auto mb-4" />
                 <p className="text-slate-400 text-sm">No graph data available</p>
@@ -143,8 +165,8 @@ export default function GraphPage() {
                   Explore Graph
                 </Button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="absolute top-4 left-4 z-10 flex gap-2">
             <button

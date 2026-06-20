@@ -1,32 +1,42 @@
 "use client"
-
 import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { Eye, EyeOff } from "lucide-react"
-import { AppShell } from "@/components/layout/AppShell"
+
+const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(4, "Password must be at least 4 characters"),
+})
+type LoginForm = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) })
+
+  const onSubmit = async (data: LoginForm) => {
     setError("")
     setLoading(true)
     try {
       const res = await fetch("http://localhost:8000/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: data.email, password: data.password }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: "Login failed" }))
         throw new Error(err.detail || "Login failed")
       }
-      const data = await res.json()
-      sessionStorage.setItem("token", data.access_token)
+      const resData = await res.json()
+      sessionStorage.setItem("token", resData.access_token)
       window.location.href = "/dashboard"
     } catch (err: any) {
       setError(err.message)
@@ -47,7 +57,7 @@ export default function LoginPage() {
           </span>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-navy-800 border border-navy-600 rounded-xl p-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="bg-navy-800 border border-navy-600 rounded-xl p-6 space-y-4">
           {error && (
             <div className="bg-red-900/30 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-2">
               {error}
@@ -59,12 +69,13 @@ export default function LoginPage() {
             <input
               id="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              {...register("email")}
               className="input w-full"
               placeholder="analyst@trailguard.ai"
-              required
             />
+            {errors.email && (
+              <p className="text-red-400 text-xs mt-1">{errors.email.message}</p>
+            )}
           </div>
 
           <div>
@@ -73,11 +84,9 @@ export default function LoginPage() {
               <input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                {...register("password")}
                 className="input w-full pr-10"
                 placeholder="Enter password"
-                required
               />
               <button
                 type="button"
@@ -87,6 +96,9 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+            {errors.password && (
+              <p className="text-red-400 text-xs mt-1">{errors.password.message}</p>
+            )}
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary w-full">

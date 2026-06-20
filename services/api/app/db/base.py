@@ -2,6 +2,7 @@ from app.db.session import Base
 from app.models.account import Account
 from app.models.analysis_run import AnalysisRun
 from app.models.audit_event import AuditEvent
+from app.models.generated_report import GeneratedReport
 from app.models.graph_metrics import GraphMetrics
 from app.models.dataset import Dataset
 from app.models.detection_event import DetectionEvent
@@ -31,5 +32,6 @@ __all__ = [
     "CaseNote",
     "AuditEvent",
     "AnalysisRun",
+    "GeneratedReport",
     "GraphMetrics",
 ]

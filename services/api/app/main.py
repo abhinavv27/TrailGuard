@@ -24,6 +24,8 @@ app = FastAPI(
     description="Financial Crime Investigation Platform",
     version="0.1.0",
     lifespan=lifespan,
+    docs_url="/docs" if settings.DEMO_MODE else None,
+    redoc_url="/redoc" if settings.DEMO_MODE else None,
 )
 
 

@@ -3,6 +3,7 @@ from app.models.analysis_run import AnalysisRun
 from app.models.audit_event import AuditEvent
 from app.models.dataset import Dataset
 from app.models.detection_event import DetectionEvent
+from app.models.generated_report import GeneratedReport
 from app.models.graph_metrics import GraphMetrics
 from app.models.investigation import CaseEvidence, CaseNote, InvestigationCase
 from app.models.risk_assessment import AccountRiskAssessment, TransactionRiskAssessment
@@ -13,6 +14,6 @@ __all__ = [
     "User", "Dataset", "Account", "Transaction",
     "AccountRiskAssessment", "TransactionRiskAssessment",
     "DetectionEvent", "InvestigationCase", "CaseEvidence", "CaseNote",
-    "AuditEvent", "AnalysisRun",
+    "AuditEvent", "AnalysisRun", "GeneratedReport",
     "GraphMetrics",
 ]
