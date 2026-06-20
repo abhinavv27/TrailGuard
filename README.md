@@ -1,12 +1,19 @@
-# TrailGuard
+<div align="center">
+  <h1>🛡️ TrailGuard</h1>
+  <p><b>Explainable Financial Crime Intelligence Platform</b></p>
+  <p><i>Follow the money. Surface the truth.</i></p>
 
-**Explainable Financial Crime Intelligence Platform**
-
-> **Follow the money. Surface the truth.**
-
-TrailGuard is an AI-powered investigation platform that helps analysts detect suspicious transactions, identify money mule networks, and trace complex fund movements. By combining anomaly detection, graph intelligence, and an AI copilot, TrailGuard explains not just *what* is suspicious, but *why*—turning raw data into evidence-backed cases.
+  <p>
+    <img src="https://img.shields.io/badge/Python-3.12+-blue.svg" alt="Python" />
+    <img src="https://img.shields.io/badge/Next.js-15-black.svg" alt="Next.js" />
+    <img src="https://img.shields.io/badge/FastAPI-0.111-009688.svg" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
+  </p>
+</div>
 
 ---
+
+TrailGuard is an AI-powered investigation platform that helps analysts detect suspicious transactions, identify money mule networks, and trace complex fund movements. By combining anomaly detection, graph intelligence, and an AI copilot, TrailGuard explains not just *what* is suspicious, but *why*—turning raw data into evidence-backed cases.
 
 ## 🌟 Key Features
 
@@ -54,17 +61,6 @@ npm install
 npm run dev
 ```
 Navigate to `http://localhost:3000` to begin.
-
----
-
-## 🛠️ Troubleshooting & Known Fixes
-
-If you encounter issues during local testing or demo scenarios:
-
-1. **Missing `metrics_json` Database Crash:** If the Account Profile crashes with `no such column: graph_metrics.metrics_json`, manually run the SQL: `ALTER TABLE graph_metrics ADD COLUMN metrics_json JSON;` or reset your DB and re-run `alembic upgrade head`.
-2. **Demo Scenario "$0 Values":** The backend API now features a dynamic fallback to calculate unique counterparties and incoming/outgoing values from raw transactions if pre-calculated `GraphMetrics` are missing.
-3. **Blank Graph (React-Force-Graph):** If your graph exploration page is blank but data exists, this is caused by strict state freezing in `react-query`. The `graphData` object is automatically deep-cloned before being passed to `d3-force` to prevent physics engine crashes.
-4. **Mule Money Trail Highlights:** The `type` field was previously stripped during Pydantic serialization. The `GraphEdge` schema has been updated (`type: str = "normal"`) to correctly pass suspicious flags to the frontend for red-edge highlighting.
 
 ---
 
