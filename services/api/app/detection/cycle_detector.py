@@ -1,8 +1,8 @@
 """Circular flow detection."""
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Dict, List, Optional
 
 from app.detection.base_detector import BaseDetector
 
@@ -71,6 +71,120 @@ class CycleDetector(BaseDetector):
             "score": round(score, 4),
             "reason_codes": reason_codes,
             "source_transaction_ids": list(set(source_tx_ids)),
+            "version": self.version,
+        }
+
+    def analyze_dataset(self, all_transactions: List[Dict]) -> Dict[str, Dict]:
+        """Find circular flows across the WHOLE graph in one pass and attribute
+        each cycle to its member accounts. A cycle (A->B->C->A) spans multiple
+        accounts, so per-account transaction slices can never see it.
+        RiskEngine calls this once and looks up each account's result.
+        """
+        import networkx as nx
+
+        edges_by_pair = defaultdict(list)
+        G = nx.DiGraph()
+        for tx in all_transactions:
+            s = tx.get("sender_account_id", "")
+            r = tx.get("receiver_account_id", "")
+            ts = self._parse_ts(tx.get("timestamp", ""))
+            if s and r and ts and s != r:
+                edges_by_pair[(s, r)].append(
+                    {"ts": ts, "amount": tx.get("amount", 0) or 0, "tx_id": tx.get("id", "")}
+                )
+                G.add_edge(s, r)
+
+        try:
+            raw_cycles = list(nx.simple_cycles(G, length_bound=6))
+        except Exception as e:
+            logger.error(f"simple_cycles failed: {e}")
+            raw_cycles = []
+
+        account_tx_counts: Dict[str, int] = defaultdict(int)
+        for tx in all_transactions:
+            s = tx.get("sender_account_id", "")
+            r = tx.get("receiver_account_id", "")
+            if s:
+                account_tx_counts[s] += 1
+            if r and r != s:
+                account_tx_counts[r] += 1
+
+        per_account: Dict[str, List[List[Dict]]] = defaultdict(list)
+        for cyc in raw_cycles:
+            if len(cyc) < 3:  # need A->B->C->A; 2-node back-and-forth is not layering
+                continue
+            pairs = [(cyc[i], cyc[(i + 1) % len(cyc)]) for i in range(len(cyc))]
+            chosen = []
+            ok = True
+            for p in pairs:
+                cands = edges_by_pair.get(p, [])
+                if not cands:
+                    ok = False
+                    break
+                chosen.append(min(cands, key=lambda e: e["ts"]))
+            if not ok:
+                continue
+            tss = [e["ts"] for e in chosen]
+            if (max(tss) - min(tss)).total_seconds() > self.max_cycle_window_hours * 3600:
+                continue
+            for acct in cyc:
+                per_account[acct].append(chosen)
+
+        results: Dict[str, Dict] = {}
+        for acct, cyclist in per_account.items():
+            scored = self._score_cycle_edges(acct, cyclist, account_tx_counts)
+            if scored:
+                results[acct] = scored
+        return results
+
+    def _score_cycle_edges(
+        self,
+        account_id: str,
+        cyclist: List[List[Dict]],
+        account_tx_counts: Optional[Dict[str, int]] = None,
+    ) -> Optional[Dict]:
+        if not cyclist:
+            return None
+        best = max(cyclist, key=len)
+        max_cycle_length = len(best)
+        amounts = [e["amount"] for e in best if e["amount"] > 0]
+        amount_similarity = (min(amounts) / max(amounts)) if len(amounts) >= 2 else 0.0
+        tss = [e["ts"] for e in best]
+        span_h = (max(tss) - min(tss)).total_seconds() / 3600 if len(tss) >= 2 else 0
+        time_compression = max(0.0, 1 - span_h / self.max_cycle_window_hours)
+
+        score = min(
+            0.35 * min(max_cycle_length / 5, 1.0)
+            + 0.35 * amount_similarity
+            + 0.30 * time_compression,
+            1.0,
+        )
+
+        # Dedication: a dedicated cycle conduit's only activity is the loop;
+        # a busy normal account caught in an incidental cycle is suppressed.
+        if account_tx_counts:
+            cyc_tx_ids = set()
+            for cyc in cyclist:
+                for e in cyc:
+                    if e.get("tx_id"):
+                        cyc_tx_ids.add(e["tx_id"])
+            total = account_tx_counts.get(account_id, 0)
+            dedication = len(cyc_tx_ids) / total if total else 0.0
+            score *= min(dedication, 1.0)
+
+        tx_ids = [e["tx_id"] for e in best if e.get("tx_id")]
+        reason_codes = [
+            {
+                "code": "CIRCULAR_FLOW",
+                "description": f"Account is part of a {max_cycle_length}-account circular transfer completing in {int(span_h)}h.",
+                "severity": round(min(max_cycle_length / 5, 1.0), 2),
+                "source_transaction_ids": tx_ids,
+            }
+        ]
+        return {
+            "score": round(score, 4),
+            "reason_codes": reason_codes,
+            "source_transaction_ids": tx_ids,
             "version": self.version,
         }
 

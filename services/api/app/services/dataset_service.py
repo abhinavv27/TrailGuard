@@ -1,5 +1,4 @@
 import hashlib
-import uuid
 from io import BytesIO, StringIO
 
 import pandas as pd
@@ -161,7 +160,7 @@ class DatasetService:
 
         run = AnalysisRun(
             dataset_id=dataset_id,
-            user_id=None,
+            user_id=dataset.user_id,
             status="running",
             started_at=datetime.now(timezone.utc),
         )
@@ -186,6 +185,9 @@ class DatasetService:
                 "currency": t.currency, "channel": t.channel,
             } for t in transactions]
             G = builder.build_graph(tx_dicts_all)
+            # Compute dataset-wide context (reference time, dataset anomaly,
+            # whole-graph layering) once before scoring individual accounts.
+            engine.prepare_dataset(tx_dicts_all)
 
             # Pre-group transactions by account to avoid O(N*M) complexity
             txs_by_account = {}
@@ -202,8 +204,8 @@ class DatasetService:
 
             alert_count = 0
             for account in accounts:
-                account_id_str = str(account.id)
-                account_txs = txs_by_account.get(account_id_str, [])
+                account_ref = str(account.external_account_ref)
+                account_txs = txs_by_account.get(account_ref, [])
                 tx_dicts = [{
                     "id": str(t.id), "amount": t.amount, "timestamp": str(t.timestamp),
                     "sender_account_id": str(t.sender_account_id),
@@ -211,7 +213,7 @@ class DatasetService:
                     "currency": t.currency, "channel": t.channel,
                 } for t in account_txs]
 
-                result = engine.analyze_account(str(account.id), tx_dicts, db)
+                result = engine.analyze_account(account_ref, tx_dicts, db)
 
                 assessment = AccountRiskAssessment(
                     account_id=account.id,
@@ -238,7 +240,7 @@ class DatasetService:
                     )
                     db.add(event)
 
-                m = builder.get_account_metrics(G, str(account.id))
+                m = builder.get_account_metrics(G, account_ref)
                 gm = GraphMetrics(
                     account_id=account.id,
                     analysis_run_id=run.id,

@@ -1,7 +1,7 @@
 """Mule/funnel account detection."""
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from app.detection.base_detector import BaseDetector
 
@@ -26,6 +26,10 @@ class MuleDetector(BaseDetector):
             "rapid_forward_window_hours", 24
         )
         self.short_holding_hours = self.config.get("short_holding_hours", 2)
+        # Anchor time windows to the dataset's own clock (max timestamp), not
+        # the wall clock. Set by RiskEngine.prepare_dataset(); falls back to
+        # utcnow() when unset (e.g. live/streaming data).
+        self.reference_time = None
 
     def analyze(
         self,
@@ -36,7 +40,7 @@ class MuleDetector(BaseDetector):
         if not transactions:
             return None
 
-        now = datetime.utcnow()
+        now = self.reference_time or datetime.utcnow()
         incoming = [tx for tx in transactions if tx.get("receiver_account_id") == account_id]
         outgoing = [tx for tx in transactions if tx.get("sender_account_id") == account_id]
 
@@ -49,22 +53,37 @@ class MuleDetector(BaseDetector):
             }
 
         unique_senders = set(tx.get("sender_account_id") for tx in incoming)
-        incoming_diversity = min(len(unique_senders) / 20, 1.0)
+        # Fan-in INTENSITY, not raw diversity: a mule funnels many senders in a
+        # short window. A normal high-volume account also has many
+        # counterparties, but spread over weeks. Measuring senders-per-day
+        # separates the funnel from ordinary activity.
+        in_ts_all = [
+            ts for ts in (self._parse_ts(tx.get("timestamp", "")) for tx in incoming) if ts
+        ]
+        in_span_days = 0.5
+        if len(in_ts_all) >= 2:
+            in_span_days = max((max(in_ts_all) - min(in_ts_all)).total_seconds() / 86400, 0.5)
+        fan_in_intensity = min((len(unique_senders) / in_span_days) / 4.0, 1.0)
+        incoming_diversity = fan_in_intensity
 
         incoming_total = sum(tx.get("amount", 0) for tx in incoming)
-        outgoing_total = sum(tx.get("amount", 0) for tx in outgoing)
 
+        # Rapid forwarding = funds sent out shortly AFTER they were received,
+        # measured against the receipt time (not the wall clock). A mule
+        # receives money and passes it on within hours.
         rapid_forward_score = 0
-        if incoming_total > 0:
-            recent_outgoing = [
-                tx
-                for tx in outgoing
-                if tx.get("timestamp")
-                and (
-                    now - self._parse_ts(tx["timestamp"])
-                ).total_seconds()
-                < self.rapid_forward_window * 3600
-            ]
+        recent_outgoing = []
+        forwarding_ratio = 0.0
+        incoming_ts = [
+            ts for ts in (self._parse_ts(tx.get("timestamp", "")) for tx in incoming) if ts
+        ]
+        if incoming_total > 0 and incoming_ts:
+            first_in = min(incoming_ts)
+            window_end = first_in + timedelta(hours=self.rapid_forward_window)
+            for tx in outgoing:
+                out_ts = self._parse_ts(tx.get("timestamp", ""))
+                if out_ts and first_in <= out_ts <= window_end:
+                    recent_outgoing.append(tx)
             outgoing_recent_total = sum(tx.get("amount", 0) for tx in recent_outgoing)
             forwarding_ratio = outgoing_recent_total / incoming_total
             rapid_forward_score = min(forwarding_ratio, 1.0)
@@ -107,15 +126,12 @@ class MuleDetector(BaseDetector):
         if account_age_days < 30 and incoming_total > 10000:
             new_account_score = min(1.0, (30 - account_age_days) / 30)
 
-        graph_centrality_score = 0  # Placeholder for NetworkX integration
-
         mule_score = (
-            0.25 * incoming_diversity
+            0.30 * incoming_diversity
             + 0.25 * rapid_forward_score
             + 0.15 * outgoing_diversity
-            + 0.15 * short_holding_score
+            + 0.20 * short_holding_score
             + 0.10 * new_account_score
-            + 0.10 * graph_centrality_score
         )
 
         reason_codes = []

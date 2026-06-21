@@ -20,9 +20,9 @@ export function Table<T>({ columns, data, keyExtractor, onRowClick, className }:
     <div className={cn("overflow-x-auto", className)}>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-navy-600">
+          <tr className="border-b border-slate-200">
             {columns.map((col) => (
-              <th key={col.key} className={cn("text-left text-slate-400 font-medium py-3 px-4", col.className)}>
+              <th key={col.key} className={cn("text-left text-slate-500 font-medium py-3 px-4", col.className)}>
                 {col.header}
               </th>
             ))}
@@ -34,7 +34,7 @@ export function Table<T>({ columns, data, keyExtractor, onRowClick, className }:
               key={keyExtractor(item)}
               onClick={() => onRowClick?.(item)}
               className={cn(
-                "border-b border-navy-600/50 hover:bg-navy-700/50 transition-colors",
+                "border-b border-slate-100 hover:bg-slate-50 transition-colors",
                 onRowClick && "cursor-pointer"
               )}
             >

@@ -1,9 +1,7 @@
 """Transaction velocity detection."""
 import logging
-import math
-from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from app.detection.base_detector import BaseDetector
 
@@ -24,7 +22,6 @@ class VelocityDetector(BaseDetector):
         self.velocity_window_hours = self.config.get(
             "velocity_window_hours", 1
         )
-        self.baseline_days = self.config.get("baseline_days", 30)
         self.max_tx_per_hour = self.config.get("max_tx_per_hour", 10)
 
     def analyze(
@@ -45,50 +42,25 @@ class VelocityDetector(BaseDetector):
         if len(timestamps) < 3:
             return None
 
-        now = max(timestamps)
+        # Genuine velocity = many transactions clustered in a short window.
+        # Find the busiest sliding window of velocity_window_hours and score it
+        # against max_tx_per_hour. Comparing "1 recent tx" to a rate spread over
+        # 30 days made every account look like a spike, which is why this used
+        # to saturate at 1.0 for nearly everyone.
+        timestamps.sort()
+        window_sec = self.velocity_window_hours * 3600
+        max_in_window = 1
+        j = 0
+        for i in range(len(timestamps)):
+            while (timestamps[i] - timestamps[j]).total_seconds() > window_sec:
+                j += 1
+            max_in_window = max(max_in_window, i - j + 1)
+
+        now = timestamps[-1]
         window_start = now - timedelta(hours=self.velocity_window_hours)
-        recent_txs = [ts for ts in timestamps if ts >= window_start]
-        recent_count = len(recent_txs)
-
-        tx_per_hour = recent_count / max(self.velocity_window_hours, 0.1)
-
-        baseline_txs = [
-            ts
-            for ts in timestamps
-            if ts >= now - timedelta(days=self.baseline_days)
-            and ts < window_start
-        ]
-
-        if baseline_txs:
-            baseline_hours = self.baseline_days * 24
-            baseline_rate = len(baseline_txs) / max(baseline_hours, 1)
-        else:
-            baseline_rate = tx_per_hour
-
-        std_dev = 0
-        if baseline_rate > 0 and baseline_txs:
-            hourly_counts = defaultdict(int)
-            for ts in baseline_txs:
-                hour_key = ts.replace(minute=0, second=0, microsecond=0)
-                hourly_counts[hour_key] += 1
-            if hourly_counts:
-                counts = list(hourly_counts.values())
-                mean = sum(counts) / len(counts)
-                variance = sum((c - mean) ** 2 for c in counts) / len(counts)
-                std_dev = math.sqrt(variance)
-
-        velocity_score = 0
-        if baseline_rate > 0:
-            spike_ratio = tx_per_hour / max(baseline_rate, 0.01)
-            velocity_score = min(spike_ratio / 5, 1.0)
-        else:
-            velocity_score = min(tx_per_hour / self.max_tx_per_hour, 1.0)
-
-        if std_dev > 0:
-            deviation_factor = (tx_per_hour - baseline_rate) / max(std_dev, 0.01)
-            velocity_score = min(
-                velocity_score + 0.3 * min(deviation_factor / 3, 1.0), 1.0
-            )
+        recent_count = max_in_window
+        tx_per_hour = max_in_window / max(self.velocity_window_hours, 0.1)
+        velocity_score = min(tx_per_hour / self.max_tx_per_hour, 1.0)
 
         reason_codes = []
         source_tx_ids = []

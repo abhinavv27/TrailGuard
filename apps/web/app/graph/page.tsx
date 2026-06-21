@@ -46,22 +46,22 @@ interface GraphData {
 }
 
 function getNodeColor(node: GraphNode): string {
-  if (node.risk === "critical") return "#f87171"
-  if (node.risk === "high") return "#fb923c"
-  if (node.risk === "medium") return "#fbbf24"
-  if (node.type === "account") return "#22d3ee"
-  if (node.type === "transaction") return "#a78bfa"
-  return "#64748b"
+  if (node.risk === "critical") return "#dc2626"
+  if (node.risk === "high") return "#ea580c"
+  if (node.risk === "medium") return "#d97706"
+  if (node.type === "account") return "#2563eb"
+  if (node.type === "transaction") return "#60a5fa"
+  return "#94a3b8"
 }
 
 function getLinkColor(link: GraphLink, muleMode: boolean): string {
   if (muleMode) {
-    if (link.type === "suspicious") return "#ef4444"
-    return "#1e293b" // Faded out
+    if (link.type === "suspicious") return "#dc2626"
+    return "#dbe1e8" // Faded out
   }
-  if (link.type === "suspicious") return "#f87171"
-  if (link.type === "high_value") return "#fb923c"
-  return "#334155"
+  if (link.type === "suspicious") return "#ef4444"
+  if (link.type === "high_value") return "#ea580c"
+  return "#94a3b8"
 }
 
 export default function GraphPage() {
@@ -133,11 +133,11 @@ export default function GraphPage() {
   return (
     <AppShell>
       <div className="flex h-[calc(100vh-7rem)] -mx-6 -mb-6">
-        <div className="flex-1 relative bg-navy-900" ref={containerRef}>
+        <div className="flex-1 relative bg-slate-100" ref={containerRef}>
           {isLoading ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-slate-500 flex flex-col items-center gap-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
                 <span className="text-sm">Loading graph...</span>
               </div>
             </div>
@@ -159,14 +159,14 @@ export default function GraphPage() {
                 linkDirectionalParticles={2}
                 linkDirectionalParticleSpeed={0.005}
                 nodeRelSize={6}
-                backgroundColor="#0f172a"
+                backgroundColor="#eef1f5"
               />
             </div>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center p-8">
-                <Share2 size={48} className="text-slate-600 mx-auto mb-4" />
-                <p className="text-slate-400 text-sm">No graph data available</p>
+                <Share2 size={48} className="text-slate-500 mx-auto mb-4" />
+                <p className="text-slate-500 text-sm">No graph data available</p>
                 <p className="text-xs text-slate-500 mt-1">Analyze datasets or inject demo data to populate the graph</p>
                 <Button className="mt-4" size="sm" onClick={() => refetch()}>
                   Explore Graph
@@ -178,7 +178,7 @@ export default function GraphPage() {
           <div className="absolute top-4 left-4 z-10 flex gap-2">
             <button
               onClick={() => setShowLegend(!showLegend)}
-              className="bg-navy-800 border border-navy-600 rounded-lg px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1.5"
+              className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1.5"
             >
               <Layers size={14} />
               {showLegend ? "Hide" : "Show"} Legend
@@ -188,7 +188,7 @@ export default function GraphPage() {
               className={`rounded-lg px-3 py-1.5 text-xs flex items-center gap-1.5 border transition-colors ${
                 muleMode
                   ? "bg-red-900/30 border-red-500/30 text-red-400"
-                  : "bg-navy-800 border-navy-600 text-slate-400 hover:text-slate-200"
+                  : "bg-white border-slate-200 text-slate-500 hover:text-slate-800"
               }`}
             >
               {muleMode ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
@@ -197,61 +197,61 @@ export default function GraphPage() {
           </div>
 
           {showLegend && (
-            <div className="absolute top-4 right-4 z-10 bg-navy-800 border border-navy-600 rounded-xl p-4 w-48">
-              <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Legend</h4>
+            <div className="absolute top-4 right-4 z-10 bg-white border border-slate-200 rounded-xl p-4 w-48">
+              <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">Legend</h4>
               <div className="space-y-2">
                 {[
-                  { color: "#22d3ee", label: "Account" },
-                  { color: "#a78bfa", label: "Transaction" },
-                  { color: "#f87171", label: "High Risk" },
-                  { color: "#fb923c", label: "Medium Risk" },
-                  { color: "#fbbf24", label: "Low Risk" },
-                  { color: "#334155", label: "Normal Flow" },
-                  { color: "#f87171", label: "Suspicious Flow" },
+                  { color: "#2563eb", label: "Account" },
+                  { color: "#60a5fa", label: "Transaction" },
+                  { color: "#dc2626", label: "High Risk" },
+                  { color: "#ea580c", label: "Medium Risk" },
+                  { color: "#d97706", label: "Low Risk" },
+                  { color: "#94a3b8", label: "Normal Flow" },
+                  { color: "#ef4444", label: "Suspicious Flow" },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center gap-2 text-xs">
                     <span
                       className="w-3 h-3 rounded-full flex-shrink-0"
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="text-slate-400">{item.label}</span>
+                    <span className="text-slate-500">{item.label}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-navy-800 border border-navy-600 rounded-lg px-4 py-2 flex items-center gap-3">
-            <Clock size={14} className="text-slate-400" />
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-white border border-slate-200 rounded-lg px-4 py-2 flex items-center gap-3">
+            <Clock size={14} className="text-slate-500" />
             <input
               type="range"
               min={1}
               max={365}
               value={timeWindow}
               onChange={(e) => setTimeWindow(Number(e.target.value))}
-              className="w-32 accent-cyan-500"
+              className="w-32 accent-blue-600"
             />
-            <span className="text-xs text-slate-400 w-16">{timeWindow} days</span>
+            <span className="text-xs text-slate-500 w-16">{timeWindow} days</span>
           </div>
         </div>
 
-        <aside className="w-72 bg-navy-800 border-l border-navy-600 p-4 overflow-y-auto flex-shrink-0">
-          <h3 className="text-sm font-medium text-slate-300 mb-4">Graph Controls</h3>
+        <aside className="w-72 bg-white border-l border-slate-200 p-4 overflow-y-auto flex-shrink-0">
+          <h3 className="text-sm font-medium text-slate-700 mb-4">Graph Controls</h3>
 
           {selectedNode && (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-medium text-slate-400 uppercase">Selected Account</h4>
-                <button onClick={() => setSelectedNode(null)} className="text-slate-500 hover:text-slate-300">
+                <h4 className="text-xs font-medium text-slate-500 uppercase">Selected Account</h4>
+                <button onClick={() => setSelectedNode(null)} className="text-slate-500 hover:text-slate-700">
                   <X size={14} />
                 </button>
               </div>
-              <div className="bg-navy-700 rounded-lg p-3 mb-3">
-                <p className="text-sm font-medium text-slate-200">{selectedNode.label || selectedNode.id}</p>
+              <div className="bg-slate-100 rounded-lg p-3 mb-3">
+                <p className="text-sm font-medium text-slate-800">{selectedNode.label || selectedNode.id}</p>
                 <p className="text-xs text-slate-500">{selectedNode.id}</p>
                 {selectedNode.risk && <Badge variant={selectedNode.risk.toLowerCase()} className="mt-2">{selectedNode.risk}</Badge>}
                 {selectedNode.value && (
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Volume: ${Number(selectedNode.value).toLocaleString()}
                   </p>
                 )}
@@ -296,8 +296,8 @@ export default function GraphPage() {
           </div>
 
           {graphData && graphData.nodes?.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-navy-600">
-              <h4 className="text-xs font-medium text-slate-400 uppercase mb-2">Stats</h4>
+            <div className="mt-6 pt-4 border-t border-slate-200">
+              <h4 className="text-xs font-medium text-slate-500 uppercase mb-2">Stats</h4>
               <div className="space-y-1 text-xs text-slate-500">
                 <p>Nodes: {graphData.nodes.length}</p>
                 <p>Edges: {graphData.links.length}</p>

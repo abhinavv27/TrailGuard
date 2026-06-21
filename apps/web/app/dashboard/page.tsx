@@ -63,7 +63,7 @@ export default function DashboardPage() {
       label: "Total Transactions",
       value: summary?.total_transactions ?? 0,
       icon: Activity,
-      color: "text-cyan-400",
+      color: "text-blue-600",
     },
     {
       label: "Total Datasets",
@@ -93,7 +93,7 @@ export default function DashboardPage() {
     <AppShell>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Command Center</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Command Center</h1>
           <p className="text-sm text-slate-500 mt-1">Financial crime intelligence overview</p>
         </div>
         <Button onClick={handleDemoScenario}>
@@ -111,8 +111,8 @@ export default function DashboardPage() {
                 <Card key={stat.label}>
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm text-slate-400">{stat.label}</p>
-                      <p className="text-3xl font-bold text-slate-100 mt-1">{stat.value.toLocaleString()}</p>
+                      <p className="text-sm text-slate-500">{stat.label}</p>
+                      <p className="text-3xl font-bold text-slate-900 mt-1">{stat.value.toLocaleString()}</p>
                     </div>
                     <Icon className={stat.color} size={24} />
                   </div>
@@ -124,7 +124,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <Card className="lg:col-span-1">
-          <h3 className="text-sm font-medium text-slate-300 mb-4">Risk Distribution</h3>
+          <h3 className="text-sm font-medium text-slate-700 mb-4">Risk Distribution</h3>
           {isLoading ? (
             <CardSkeleton />
           ) : riskData.length > 0 ? (
@@ -141,15 +141,16 @@ export default function DashboardPage() {
                     dataKey="value"
                   >
                     {riskData.map((entry) => (
-                      <Cell key={entry.name} fill={riskColors[entry.name] || "#64748b"} />
+                      <Cell key={entry.name} fill={riskColors[String(entry.name).toLowerCase()] || "#64748b"} />
                     ))}
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      background: "#151b2e",
-                      border: "1px solid #1c2440",
+                      background: "#ffffff",
+                      border: "1px solid #e2e8f0",
                       borderRadius: "8px",
-                      color: "#e2e8f0",
+                      color: "#0f172a",
+                      boxShadow: "0 4px 14px -4px rgba(16,24,40,0.15)",
                     }}
                   />
                 </PieChart>
@@ -159,10 +160,10 @@ export default function DashboardPage() {
                   <div key={entry.name} className="flex items-center gap-2 text-xs">
                     <span
                       className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: riskColors[entry.name] || "#64748b" }}
+                      style={{ backgroundColor: riskColors[String(entry.name).toLowerCase()] || "#64748b" }}
                     />
-                    <span className="text-slate-400 capitalize">{entry.name}</span>
-                    <span className="text-slate-200 font-medium">{entry.value}</span>
+                    <span className="text-slate-500 capitalize">{entry.name}</span>
+                    <span className="text-slate-800 font-medium">{entry.value}</span>
                   </div>
                 ))}
               </div>
@@ -174,7 +175,7 @@ export default function DashboardPage() {
 
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-slate-300">Latest Alerts</h3>
+            <h3 className="text-sm font-medium text-slate-700">Latest Alerts</h3>
             <Button variant="ghost" size="sm" onClick={() => router.push("/alerts")}>
               View All <ArrowRight size={14} className="ml-1" />
             </Button>
@@ -186,11 +187,11 @@ export default function DashboardPage() {
               {summary.latest_alerts.slice(0, 5).map((alert: any) => (
                 <div
                   key={alert.id}
-                  className="flex items-center justify-between bg-navy-700/50 rounded-lg px-4 py-3 cursor-pointer hover:bg-navy-700 transition-colors"
+                  className="flex items-center justify-between bg-slate-100/50 rounded-lg px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors"
                   onClick={() => router.push(`/alerts`)}
                 >
                   <div>
-                    <p className="text-sm text-slate-200 font-medium">{alert.title || alert.event_type || alert.alert_type || "Alert"}</p>
+                    <p className="text-sm text-slate-800 font-medium">{alert.title || alert.event_type || alert.alert_type || "Alert"}</p>
                     <p className="text-xs text-slate-500 mt-0.5">{alert.entity_id || alert.account_id}</p>
                   </div>
                   <Badge variant={alert.severity?.toLowerCase() || "medium"}>
@@ -206,7 +207,7 @@ export default function DashboardPage() {
       </div>
 
       <Card>
-        <h3 className="text-sm font-medium text-slate-300 mb-4">High-Risk Network Clusters</h3>
+        <h3 className="text-sm font-medium text-slate-700 mb-4">High-Risk Network Clusters</h3>
         {isLoading ? (
           <TableSkeleton rows={3} />
         ) : (

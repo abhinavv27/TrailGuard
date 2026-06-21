@@ -1,11 +1,10 @@
 """
 Risk Engine - combines multiple detectors into a unified risk score.
 """
-import json
 import logging
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +31,12 @@ class RiskResult:
 
 
 def determine_risk_level(score: float) -> str:
-    if score >= 80:
-        return "CRITICAL"
+    # Thresholds calibrated to the blended primary-max scoring: a single clear
+    # laundering pattern lands ~60-66, layering conduits ~55-59, and normal
+    # high-volume accounts top out ~45. Alerts fire on HIGH/CRITICAL.
     if score >= 60:
+        return "CRITICAL"
+    if score >= 48:
         return "HIGH"
     if score >= 35:
         return "MEDIUM"
@@ -56,7 +58,75 @@ class RiskEngine:
 
     def __init__(self):
         self.detectors = {}
+        # Dataset-wide context, populated by prepare_dataset(). Detectors that
+        # need the whole graph (layering) or whole dataset (anomaly) read from
+        # here instead of their per-account transaction slice.
+        self.reference_time = None
+        self._anomalous_tx_ids = set()
+        self._layering_results = {}
+        self._cycle_results = {}
         self._load_detectors()
+
+    def prepare_dataset(self, all_transactions: List[Dict]):
+        """Compute dataset-wide context once before scoring individual accounts.
+
+        Fixes two root-cause classes:
+          - Wall-clock anchoring: derive a reference_time from the data's own
+            max timestamp and push it to time-windowed detectors, so windows
+            work for any dataset (not just data from the last few hours).
+          - Per-account scoping: run anomaly across the FULL dataset (so
+            Isolation Forest has enough samples) and layering across the FULL
+            graph (so multi-hop chains are visible), then map results back to
+            individual accounts.
+        """
+        # Reference time = the dataset's own "now".
+        ref = None
+        for tx in all_transactions:
+            ts = self._parse_ts(tx.get("timestamp", ""))
+            if ts and (ref is None or ts > ref):
+                ref = ts
+        self.reference_time = ref
+        for detector in self.detectors.values():
+            if hasattr(detector, "reference_time"):
+                detector.reference_time = ref
+
+        # Dataset-wide anomaly: flag anomalous transactions across everything.
+        self._anomalous_tx_ids = set()
+        anomaly = self.detectors.get("anomaly")
+        if anomaly is not None and hasattr(anomaly, "flag_dataset"):
+            try:
+                self._anomalous_tx_ids = anomaly.flag_dataset(all_transactions)
+            except Exception as e:
+                logger.error(f"Dataset anomaly pass failed: {e}")
+
+        # Whole-graph layering: find chains once and attribute to accounts.
+        self._layering_results = {}
+        layering = self.detectors.get("layering")
+        if layering is not None and hasattr(layering, "analyze_dataset"):
+            try:
+                self._layering_results = layering.analyze_dataset(all_transactions)
+            except Exception as e:
+                logger.error(f"Dataset layering pass failed: {e}")
+
+        # Whole-graph cycle detection: find circular flows once.
+        self._cycle_results = {}
+        cycle = self.detectors.get("cycle")
+        if cycle is not None and hasattr(cycle, "analyze_dataset"):
+            try:
+                self._cycle_results = cycle.analyze_dataset(all_transactions)
+            except Exception as e:
+                logger.error(f"Dataset cycle pass failed: {e}")
+
+    def _parse_ts(self, ts_str):
+        if not ts_str:
+            return None
+        try:
+            return datetime.fromisoformat(str(ts_str).replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            try:
+                return datetime.strptime(str(ts_str), "%Y-%m-%d %H:%M:%S")
+            except (ValueError, TypeError):
+                return None
 
     def _load_detectors(self):
         """Register all available detectors."""
@@ -82,6 +152,40 @@ class RiskEngine:
         except Exception as e:
             logger.error(f"Failed to load detectors: {e}")
 
+    def _account_anomaly_result(self, transactions: List[Dict]) -> Optional[Dict]:
+        """Anomaly score for one account, derived from the dataset-wide flags
+        computed in prepare_dataset(). Falls back to a per-account pass when no
+        dataset context was prepared (e.g. direct unit-test calls)."""
+        if not self._anomalous_tx_ids:
+            if self.reference_time is None and transactions:
+                # No dataset prep happened; preserve old per-account behavior.
+                return self.detectors["anomaly"].analyze("__account__", transactions)
+            return None
+        if not transactions:
+            return None
+        flagged = [tx for tx in transactions if tx.get("id") in self._anomalous_tx_ids]
+        if not flagged:
+            return None
+        anomaly_ratio = len(flagged) / len(transactions)
+        # Scale by absolute evidence: a single flagged transaction is weak
+        # (otherwise every 1-tx victim account saturates to 1.0). Needs ~3
+        # flagged transactions for full confidence.
+        confidence = min(len(flagged) / 3, 1.0)
+        score = min(anomaly_ratio * 1.5, 1.0) * confidence
+        return {
+            "score": round(score, 4),
+            "reason_codes": [
+                {
+                    "code": "STATISTICAL_ANOMALY",
+                    "description": f"{len(flagged)} of {len(transactions)} transactions flagged as statistical outliers (dataset-wide Isolation Forest).",
+                    "severity": round(score, 2),
+                    "source_transaction_ids": [tx.get("id", "") for tx in flagged][:10],
+                }
+            ],
+            "source_transaction_ids": [tx.get("id", "") for tx in flagged][:20],
+            "version": getattr(self.detectors.get("anomaly"), "version", "1.3.0"),
+        }
+
     def analyze_account(
         self, account_id: str, transactions: List[Dict], db_session=None
     ) -> RiskResult:
@@ -93,7 +197,14 @@ class RiskEngine:
 
         for name, detector in self.detectors.items():
             try:
-                result = detector.analyze(account_id, transactions, db_session)
+                if name == "anomaly":
+                    result = self._account_anomaly_result(transactions)
+                elif name == "layering":
+                    result = self._layering_results.get(account_id)
+                elif name == "cycle":
+                    result = self._cycle_results.get(account_id)
+                else:
+                    result = detector.analyze(account_id, transactions, db_session)
                 if result:
                     component_scores[name] = result.get("score", 0)
                     all_reason_codes.extend(result.get("reason_codes", []))
@@ -114,9 +225,20 @@ class RiskEngine:
             "anomaly": 0.15,
             "counterparty": 0.15,
         }
-        raw_score = sum(
+        weighted_sum = sum(
             component_scores.get(k, 0) * w for k, w in weights.items()
         )
+
+        # A single decisive fraud pattern should produce a high score on its
+        # own; a pure weighted average buries strong evidence (e.g. a clear
+        # structuring case at 0.9 would only contribute 0.09). "Primary"
+        # detectors capture a concrete laundering behaviour and can drive risk
+        # alone; supporting detectors (velocity/anomaly/counterparty) only
+        # corroborate. Final score blends the strongest primary signal with the
+        # corroborating weighted sum.
+        PRIMARY = ("mule", "layering", "cycle", "structuring")
+        max_primary = max((component_scores.get(k, 0) for k in PRIMARY), default=0)
+        raw_score = 0.65 * max_primary + 0.35 * weighted_sum
         risk_score = round(min(raw_score * 100, 100), 2)
         risk_level = determine_risk_level(risk_score)
 

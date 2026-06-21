@@ -30,7 +30,7 @@ export default function CasesPage() {
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-100">Investigation Cases</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Investigation Cases</h1>
         <p className="text-sm text-slate-500 mt-1">Manage financial crime investigations</p>
       </div>
 
@@ -41,13 +41,13 @@ export default function CasesPage() {
           {cases.map((c: any) => (
             <Card
               key={c.id}
-              className="hover:border-navy-500 transition-colors cursor-pointer"
+              className="hover:border-slate-300 transition-colors cursor-pointer"
               onClick={() => router.push(`/cases/${c.id}`)}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-sm font-medium text-slate-200">{c.title || `Case ${c.id.slice(0, 8)}`}</h3>
+                    <h3 className="text-sm font-medium text-slate-800">{c.title || `Case ${c.id.slice(0, 8)}`}</h3>
                     <Badge variant={c.status === "open" ? "high" : c.status === "under_review" ? "medium" : "low"}>
                       {c.status || "OPEN"}
                     </Badge>

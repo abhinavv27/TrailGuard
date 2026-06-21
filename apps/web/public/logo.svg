@@ -1,6 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
-  <rect x="4" y="8" width="32" height="24" rx="4" stroke="#06b6d4" stroke-width="2.5" fill="#0f1422"/>
-  <path d="M16 20l3 3 5-6" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="28" cy="14" r="5" stroke="#22d3ee" stroke-width="1.5" fill="none"/>
-  <path d="M31 17l3 3" stroke="#22d3ee" stroke-width="1.5" stroke-linecap="round"/>
+<svg viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- white nested chevrons (top faces of the cube) -->
+  <path d="M52 150 L128 80 L204 150" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M90 158 L128 122 L166 158" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- blue cupped base (bottom faces / hands), near-vertical outer edge hooking to centre -->
+  <path d="M58 148 L66 188 L120 214" stroke="#1f86ff" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M198 148 L190 188 L136 214" stroke="#1f86ff" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

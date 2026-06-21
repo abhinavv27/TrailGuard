@@ -60,16 +60,16 @@ export default function DatasetsPage() {
       header: "Filename",
       render: (item: any) => (
         <div className="flex items-center gap-2">
-          <FileText size={16} className="text-cyan-400" />
-          <span className="text-slate-200">{item.filename}</span>
+          <FileText size={16} className="text-blue-600" />
+          <span className="text-slate-800">{item.filename}</span>
         </div>
       ),
     },
     {
-      key: "record_count",
+      key: "row_count",
       header: "Records",
       render: (item: any) => (
-        <span className="text-slate-300">{(item.record_count || 0).toLocaleString()}</span>
+        <span className="text-slate-700">{(item.row_count ?? item.record_count ?? 0).toLocaleString()}</span>
       ),
     },
     {
@@ -89,7 +89,7 @@ export default function DatasetsPage() {
       key: "created_at",
       header: "Uploaded",
       render: (item: any) => (
-        <span className="text-slate-400 text-xs">{item.created_at ? new Date(item.created_at).toLocaleDateString() : "-"}</span>
+        <span className="text-slate-500 text-xs">{item.created_at ? new Date(item.created_at).toLocaleDateString() : "-"}</span>
       ),
     },
     {
@@ -121,16 +121,16 @@ export default function DatasetsPage() {
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-100">Dataset Workspace</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Dataset Workspace</h1>
         <p className="text-sm text-slate-500 mt-1">Upload and analyze transaction datasets</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <Card className="lg:col-span-2">
-          <h3 className="text-sm font-medium text-slate-300 mb-3">Upload Dataset</h3>
+          <h3 className="text-sm font-medium text-slate-700 mb-3">Upload Dataset</h3>
           <FileUpload onUpload={handleUpload} />
           {uploading && (
-            <div className="mt-3 flex items-center gap-2 text-sm text-cyan-400">
+            <div className="mt-3 flex items-center gap-2 text-sm text-blue-600">
               <Upload size={16} className="animate-bounce" />
               Uploading and processing...
             </div>
@@ -138,8 +138,8 @@ export default function DatasetsPage() {
         </Card>
 
         <Card>
-          <h3 className="text-sm font-medium text-slate-300 mb-3">Supported Schemas</h3>
-          <ul className="space-y-2 text-xs text-slate-400">
+          <h3 className="text-sm font-medium text-slate-700 mb-3">Supported Schemas</h3>
+          <ul className="space-y-2 text-xs text-slate-500">
             <li className="flex items-center gap-2">
               <CheckCircle size={12} className="text-green-400" />
               Transaction ID (required)
@@ -169,7 +169,7 @@ export default function DatasetsPage() {
       </div>
 
       <Card>
-        <h3 className="text-sm font-medium text-slate-300 mb-4">Datasets</h3>
+        <h3 className="text-sm font-medium text-slate-700 mb-4">Datasets</h3>
         {isLoading ? (
           <TableSkeleton />
         ) : datasets && datasets.length > 0 ? (

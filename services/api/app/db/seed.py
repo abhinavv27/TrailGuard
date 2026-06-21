@@ -39,19 +39,25 @@ def seed_database():
             else:
                 print(f"  User exists: {user_data['email']}")
 
+        db.flush()
+        # Datasets are owned by the admin user
+        owner = db.query(User).filter(User.email == DEMO_USERS[0]["email"]).first()
+
         # Try to seed synthetic data
-        csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "data", "synthetic", "sample_transactions.csv")
+        csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "data", "synthetic", "sample_transactions.csv")
         if os.path.exists(csv_path):
             print(f"Loading synthetic data from {csv_path}...")
             import csv
             with open(csv_path, "r") as f:
                 reader = csv.DictReader(f)
                 tx_count = 0
+                seen_refs = set()  # autoflush=False, so dedup accounts in-memory
                 for row in reader:
                     # Check if dataset exists
                     dataset = db.query(Dataset).filter(Dataset.filename == "synthetic_seed").first()
                     if not dataset:
                         dataset = Dataset(
+                            user_id=owner.id,
                             filename="synthetic_seed",
                             original_filename="sample_transactions.csv",
                             file_size=os.path.getsize(csv_path),
@@ -64,11 +70,8 @@ def seed_database():
 
                     # Create account refs
                     for acc_ref in [row["sender_account_id"], row["receiver_account_id"]]:
-                        existing_acc = db.query(Account).filter(
-                            Account.external_account_ref == acc_ref,
-                            Account.dataset_id == dataset.id,
-                        ).first()
-                        if not existing_acc:
+                        if acc_ref not in seen_refs:
+                            seen_refs.add(acc_ref)
                             account = Account(
                                 dataset_id=dataset.id,
                                 external_account_ref=acc_ref,

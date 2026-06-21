@@ -1,6 +1,5 @@
 """Build NetworkX graphs from transaction data and compute metrics."""
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List
 
 import networkx as nx
 
@@ -131,6 +130,17 @@ class GraphBuilder:
         self, G: nx.DiGraph, account_id: str
     ) -> Dict:
         """Get graph metrics for a specific account."""
+        if account_id not in G:
+            return {
+                "in_total": 0,
+                "out_total": 0,
+                "in_degree": 0,
+                "out_degree": 0,
+                "in_unique_counterparties": 0,
+                "out_unique_counterparties": 0,
+                "in_cycle": False,
+                "cycle_count": 0,
+            }
         in_edges = list(G.in_edges(account_id, data=True))
         out_edges = list(G.out_edges(account_id, data=True))
         in_total = sum(e[2].get("amount", 0) for e in in_edges)
