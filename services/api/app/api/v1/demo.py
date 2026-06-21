@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.dependencies import get_db
 from app.core.security import get_current_user
 from app.models.account import Account
+from app.models.analysis_run import AnalysisRun
 from app.models.dataset import Dataset
 from app.models.detection_event import DetectionEvent
 from app.models.risk_assessment import AccountRiskAssessment
@@ -36,6 +37,18 @@ def inject_scenario(
         status="analyzed",
     )
     db.add(dataset)
+    db.flush()
+
+    # Risk assessments and detection events require an analysis run (FK,
+    # NOT NULL on assessments), so stand one up for the injected scenario.
+    run = AnalysisRun(
+        dataset_id=dataset.id,
+        user_id=current_user.get("sub", ""),
+        status="completed",
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
+    )
+    db.add(run)
     db.flush()
 
     account_ids = []
@@ -75,8 +88,9 @@ def inject_scenario(
         risk_score = round(random.uniform(0, 100), 2)
         assessment = AccountRiskAssessment(
             account_id=acc_id,
+            analysis_run_id=run.id,
             risk_score=risk_score,
-            risk_level="critical" if risk_score > 80 else "high" if risk_score > 60 else "medium" if risk_score > 30 else "low",
+            risk_level="CRITICAL" if risk_score > 80 else "HIGH" if risk_score > 60 else "MEDIUM" if risk_score > 30 else "LOW",
             component_scores_json={
                 "velocity": round(random.uniform(0, 100), 2),
                 "amount": round(random.uniform(0, 100), 2),
@@ -93,8 +107,9 @@ def inject_scenario(
     for acc_id in account_ids[:3]:
         event = DetectionEvent(
             dataset_id=dataset.id,
+            analysis_run_id=run.id,
             event_type=random.choice(["structuring", "rapid_movement", "high_risk_geography"]),
-            severity=random.choice(["low", "medium", "high", "critical"]),
+            severity=random.choice(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
             entity_type="account",
             entity_id=acc_id,
             risk_score=round(random.uniform(0, 100), 2),
