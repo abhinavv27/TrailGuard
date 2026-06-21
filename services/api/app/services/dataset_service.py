@@ -70,11 +70,19 @@ class DatasetService:
                 df = pd.read_excel(BytesIO(content))
             else:
                 df = pd.read_csv(StringIO(content.decode("utf-8")))
-            errors = DatasetService.validate_columns(df)
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to parse file: {e}",
+            )
+
+        # Reject malformed files before ingest (raised outside the parse
+        # try/except so the 400 isn't re-wrapped as a parse error).
+        errors = DatasetService.validate_columns(df)
+        if errors:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="; ".join(errors),
             )
 
         dataset = Dataset(
@@ -204,7 +212,16 @@ class DatasetService:
 
             alert_count = 0
             for account in accounts:
-                account_ref = str(account.external_account_ref)
+                # Transactions reference accounts by the FK that ingest stored:
+                # the upload path stores Account.id (UUID), the seed path stores
+                # external_account_ref. Resolve whichever this dataset used so
+                # the same key drives tx grouping, detection, and graph metrics.
+                account_uuid = str(account.id)
+                account_ref = (
+                    account_uuid
+                    if account_uuid in txs_by_account
+                    else str(account.external_account_ref)
+                )
                 account_txs = txs_by_account.get(account_ref, [])
                 tx_dicts = [{
                     "id": str(t.id), "amount": t.amount, "timestamp": str(t.timestamp),
