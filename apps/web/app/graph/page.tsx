@@ -69,6 +69,7 @@ export default function GraphPage() {
   const [showLegend, setShowLegend] = useState(true)
   const [muleMode, setMuleMode] = useState(false)
   const [selectedNode, setSelectedNode] = useState<any>(null)
+  const [traceGraph, setTraceGraph] = useState<GraphData | null>(null)
   const [timeWindow, setTimeWindow] = useState(90)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
@@ -79,13 +80,18 @@ export default function GraphPage() {
     queryFn: () => api.graph.explore(exploreParams),
   })
 
+  // The trace endpoints return a focused sub-graph that overrides the
+  // explore view until the user runs another exploration.
+  const display = traceGraph || graphData
+
   const handleTraceSource = async (accountId?: string) => {
     const id = accountId || selectedNode?.id
     if (!id) { toast.error("Select an account first"); return }
     try {
       const data = await api.graph.traceSource({ account_id: id, depth: 3 })
-      setExploreParams({ ...exploreParams, ...data })
-      toast.success("Source trace complete")
+      setTraceGraph({ nodes: data.path_nodes || [], links: data.path_edges || [] })
+      if (!data.path_nodes?.length) toast.info("No upstream sources found")
+      else toast.success(`Source trace: ${data.path_nodes.length} accounts`)
     } catch { toast.error("Trace failed") }
   }
 
@@ -94,10 +100,13 @@ export default function GraphPage() {
     if (!id) { toast.error("Select an account first"); return }
     try {
       const data = await api.graph.traceDestination({ account_id: id, depth: 3 })
-      setExploreParams({ ...exploreParams, ...data })
-      toast.success("Destination trace complete")
+      setTraceGraph({ nodes: data.path_nodes || [], links: data.path_edges || [] })
+      if (!data.path_nodes?.length) toast.info("No downstream destinations found")
+      else toast.success(`Destination trace: ${data.path_nodes.length} accounts`)
     } catch { toast.error("Trace failed") }
   }
+
+  const runExplore = () => { setTraceGraph(null); refetch() }
 
   useEffect(() => {
     refetch()
@@ -117,10 +126,10 @@ export default function GraphPage() {
   }, [])
 
   useEffect(() => {
-    if (graphRef.current && graphData?.nodes?.length) {
+    if (graphRef.current && display?.nodes?.length) {
       graphRef.current.zoomToFit(400)
     }
-  }, [graphData])
+  }, [display])
 
   if (error) {
     return (
@@ -141,13 +150,13 @@ export default function GraphPage() {
                 <span className="text-sm">Loading graph...</span>
               </div>
             </div>
-          ) : graphData && graphData.nodes?.length > 0 ? (
+          ) : display && display.nodes?.length > 0 ? (
             <div className="absolute inset-0">
               <ForceGraph2D
                 ref={graphRef}
-                graphData={{ 
-                  nodes: JSON.parse(JSON.stringify(graphData.nodes)), 
-                  links: JSON.parse(JSON.stringify(graphData.links)) 
+                graphData={{
+                  nodes: JSON.parse(JSON.stringify(display.nodes)),
+                  links: JSON.parse(JSON.stringify(display.links))
                 }}
                 nodeColor={(node: any) => getNodeColor(node)}
                 linkColor={(link: any) => getLinkColor(link, muleMode)}
@@ -168,7 +177,7 @@ export default function GraphPage() {
                 <Share2 size={48} className="text-slate-500 mx-auto mb-4" />
                 <p className="text-slate-500 text-sm">No graph data available</p>
                 <p className="text-xs text-slate-500 mt-1">Analyze datasets or inject demo data to populate the graph</p>
-                <Button className="mt-4" size="sm" onClick={() => refetch()}>
+                <Button className="mt-4" size="sm" onClick={runExplore}>
                   Explore Graph
                 </Button>
               </div>
@@ -290,18 +299,20 @@ export default function GraphPage() {
                 max={6}
               />
             </div>
-            <Button className="w-full" onClick={() => refetch()}>
-              <Share2 size={16} className="mr-1.5" /> Update Graph
+            <Button className="w-full" onClick={runExplore}>
+              <Share2 size={16} className="mr-1.5" /> {traceGraph ? "Back to Full Graph" : "Update Graph"}
             </Button>
           </div>
 
-          {graphData && graphData.nodes?.length > 0 && (
+          {display && display.nodes?.length > 0 && (
             <div className="mt-6 pt-4 border-t border-slate-200">
-              <h4 className="text-xs font-medium text-slate-500 uppercase mb-2">Stats</h4>
+              <h4 className="text-xs font-medium text-slate-500 uppercase mb-2">
+                {traceGraph ? "Trace Result" : "Stats"}
+              </h4>
               <div className="space-y-1 text-xs text-slate-500">
-                <p>Nodes: {graphData.nodes.length}</p>
-                <p>Edges: {graphData.links.length}</p>
-                <p>Suspicious flows: {graphData.links.filter((l: any) => l.type === "suspicious").length}</p>
+                <p>Nodes: {display.nodes.length}</p>
+                <p>Edges: {display.links.length}</p>
+                <p>Suspicious flows: {display.links.filter((l: any) => l.type === "suspicious").length}</p>
               </div>
             </div>
           )}
