@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db
@@ -14,6 +15,12 @@ from app.schemas.account import (
 )
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
+
+
+def _account_keys(account: Account) -> list:
+    """Ids a transaction may use to reference this account: the upload path
+    stores Account.id (UUID), the seed path stores external_account_ref."""
+    return [str(account.id), str(account.external_account_ref)]
 
 
 @router.get("/{account_id}", response_model=AccountResponse)
@@ -56,10 +63,11 @@ def get_account(
     else:
         from sqlalchemy import func
         from app.models.transaction import Transaction
-        in_value = db.query(func.sum(Transaction.amount)).filter(Transaction.receiver_account_id == account_id).scalar() or 0.0
-        out_value = db.query(func.sum(Transaction.amount)).filter(Transaction.sender_account_id == account_id).scalar() or 0.0
-        in_senders = db.query(func.count(func.distinct(Transaction.sender_account_id))).filter(Transaction.receiver_account_id == account_id).scalar() or 0
-        out_receivers = db.query(func.count(func.distinct(Transaction.receiver_account_id))).filter(Transaction.sender_account_id == account_id).scalar() or 0
+        keys = _account_keys(account)
+        in_value = db.query(func.sum(Transaction.amount)).filter(Transaction.receiver_account_id.in_(keys)).scalar() or 0.0
+        out_value = db.query(func.sum(Transaction.amount)).filter(Transaction.sender_account_id.in_(keys)).scalar() or 0.0
+        in_senders = db.query(func.count(func.distinct(Transaction.sender_account_id))).filter(Transaction.receiver_account_id.in_(keys)).scalar() or 0
+        out_receivers = db.query(func.count(func.distinct(Transaction.receiver_account_id))).filter(Transaction.sender_account_id.in_(keys)).scalar() or 0
         
         metrics = {
             "degree_centrality": in_senders + out_receivers,
@@ -121,11 +129,12 @@ def get_account_transactions(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
+    keys = _account_keys(account)
     transactions = (
         db.query(Transaction)
         .filter(
-            (Transaction.sender_account_id == account_id)
-            | (Transaction.receiver_account_id == account_id)
+            Transaction.sender_account_id.in_(keys)
+            | Transaction.receiver_account_id.in_(keys)
         )
         .order_by(Transaction.timestamp.desc())
         .offset(skip)
@@ -203,36 +212,35 @@ def get_account_graph(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
+    keys = _account_keys(account)
     transactions = (
         db.query(Transaction)
         .filter(
-            (Transaction.sender_account_id == account_id)
-            | (Transaction.receiver_account_id == account_id)
+            Transaction.sender_account_id.in_(keys)
+            | Transaction.receiver_account_id.in_(keys)
         )
         .limit(100)
         .all()
     )
 
-    nodes = {str(account.id): {"id": str(account.id), "label": account.masked_account_ref, "type": "account"}}
+    def _label(node_key: str) -> str:
+        acct = (
+            db.query(Account)
+            .filter(or_(Account.id == node_key, Account.external_account_ref == node_key))
+            .first()
+        )
+        return (acct.masked_account_ref or acct.external_account_ref) if acct else node_key
+
+    nodes = {}
     edges = []
 
     for txn in transactions:
         sender_id = str(txn.sender_account_id)
         receiver_id = str(txn.receiver_account_id)
         if sender_id not in nodes:
-            sender = db.query(Account).filter(Account.id == sender_id).first()
-            nodes[sender_id] = {
-                "id": sender_id,
-                "label": sender.masked_account_ref if sender else sender_id,
-                "type": "account",
-            }
+            nodes[sender_id] = {"id": sender_id, "label": _label(sender_id), "type": "account"}
         if receiver_id not in nodes:
-            receiver = db.query(Account).filter(Account.id == receiver_id).first()
-            nodes[receiver_id] = {
-                "id": receiver_id,
-                "label": receiver.masked_account_ref if receiver else receiver_id,
-                "type": "account",
-            }
+            nodes[receiver_id] = {"id": receiver_id, "label": _label(receiver_id), "type": "account"}
         edges.append({
             "source": sender_id,
             "target": receiver_id,
@@ -245,6 +253,14 @@ def get_account_graph(
                 "scenario": txn.scenario,
             },
         })
+
+    if not nodes:
+        # Isolated account with no transactions: still show it.
+        nodes[str(account.id)] = {
+            "id": str(account.id),
+            "label": account.masked_account_ref or account.external_account_ref,
+            "type": "account",
+        }
 
     return AccountGraphResponse(
         nodes=list(nodes.values()),

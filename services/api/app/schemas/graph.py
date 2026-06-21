@@ -14,6 +14,7 @@ class GraphNode(BaseModel):
     id: str
     label: str
     type: str
+    risk: str = ""
     metadata: dict = {}
 
 
