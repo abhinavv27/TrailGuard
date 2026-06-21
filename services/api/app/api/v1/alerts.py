@@ -6,9 +6,23 @@ from app.core.security import get_current_user
 from app.models.detection_event import DetectionEvent
 from app.models.investigation import CaseEvidence, InvestigationCase
 from app.schemas.alert import AlertListResponse, AlertResponse
-from app.schemas.case import CaseCreate
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
+
+
+def _reason_codes(reason_codes_json) -> list[str]:
+    """Detection events store reason codes as {"reasons": [{"code": ...}, ...]}.
+    The alert API exposes them as a flat list of code strings for display."""
+    if not reason_codes_json:
+        return []
+    reasons = reason_codes_json.get("reasons", []) if isinstance(reason_codes_json, dict) else reason_codes_json
+    codes = []
+    for r in reasons:
+        if isinstance(r, dict):
+            codes.append(r.get("code") or r.get("description") or "")
+        else:
+            codes.append(str(r))
+    return [c for c in codes if c]
 
 
 @router.get("", response_model=AlertListResponse)
@@ -36,7 +50,7 @@ def list_alerts(
                 entity_type=a.entity_type,
                 entity_id=a.entity_id,
                 risk_score=a.risk_score,
-                reason_codes=a.reason_codes_json or [],
+                reason_codes=_reason_codes(a.reason_codes_json),
                 evidence=a.evidence_json or {},
                 created_at=a.created_at,
             )
@@ -64,7 +78,7 @@ def get_alert(
         entity_type=alert.entity_type,
         entity_id=alert.entity_id,
         risk_score=alert.risk_score,
-        reason_codes=alert.reason_codes_json or [],
+        reason_codes=_reason_codes(alert.reason_codes_json),
         evidence=alert.evidence_json or {},
         created_at=alert.created_at,
     )

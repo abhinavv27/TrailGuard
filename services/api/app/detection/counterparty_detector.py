@@ -1,8 +1,7 @@
 """Sudden counterparty expansion detector."""
 import logging
-from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from app.detection.base_detector import BaseDetector
 
@@ -26,6 +25,8 @@ class CounterpartyDetector(BaseDetector):
         self.min_new_counterparties = self.config.get(
             "min_new_counterparties", 5
         )
+        # Anchor windows to the dataset clock; set by RiskEngine.prepare_dataset().
+        self.reference_time = None
 
     def analyze(
         self,
@@ -36,7 +37,7 @@ class CounterpartyDetector(BaseDetector):
         if not transactions or len(transactions) < self.min_new_counterparties:
             return None
 
-        now = datetime.utcnow()
+        now = self.reference_time or datetime.utcnow()
         expansion_start = now - timedelta(days=self.expansion_window_days)
         baseline_start = now - timedelta(days=self.baseline_days)
 

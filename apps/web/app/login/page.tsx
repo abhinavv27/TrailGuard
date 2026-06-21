@@ -1,9 +1,11 @@
 "use client"
 import { useState } from "react"
+import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft, ArrowRight } from "lucide-react"
+import { OfficerPeek } from "@/components/landing/OfficerPeek"
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -46,69 +48,109 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-navy-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <img src="/logo.svg" alt="TrailGuard AI" className="w-12 h-12 mx-auto mb-3" />
-          <h1 className="text-2xl font-bold text-slate-100">TrailGuard AI</h1>
-          <p className="text-sm text-slate-500 mt-1">Financial Crime Investigation Platform</p>
-          <span className="inline-block mt-3 bg-amber-500/10 text-amber-400 text-[10px] font-semibold px-2 py-1 rounded border border-amber-500/20 uppercase tracking-wider">
-            Synthetic Demo Environment
-          </span>
+    <div className="grain bg-metal relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-16 font-display text-slate-700">
+      {/* faint etched circuit traces, masked — matches the landing vibe */}
+      <div className="pointer-events-none absolute inset-0 bg-traces [mask-image:radial-gradient(ellipse_60%_55%_at_50%_45%,#000_35%,transparent_80%)]" />
+
+      {/* back to home */}
+      <Link
+        href="/"
+        className="absolute left-6 top-6 z-20 inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-slate-900"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Home
+      </Link>
+
+      {/* centred auth card with the officer peeking from behind it */}
+      <div className="relative w-full max-w-sm">
+        {/* officer — sits behind the card (z-0), only his head peers over the top */}
+        <div
+          className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2"
+          style={{ bottom: "calc(100% - 104px)" }}
+        >
+          <OfficerPeek />
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-navy-800 border border-navy-600 rounded-xl p-6 space-y-4">
-          {error && (
-            <div className="bg-red-900/30 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-2">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className="label" htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              {...register("email")}
-              className="input w-full"
-              placeholder="analyst@trailguard.ai"
-            />
-            {errors.email && (
-              <p className="text-red-400 text-xs mt-1">{errors.email.message}</p>
-            )}
+        {/* the card (opaque metal panel, hides his body) */}
+        <div className="panel-raised relative z-10 rounded-2xl p-8">
+          {/* brand */}
+          <div className="mb-8 text-center">
+            <Link href="/" className="inline-flex items-center gap-2">
+              <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.svg" alt="" className="h-7 w-7" />
+              </span>
+              <span className="text-base font-semibold text-slate-900">TrailGuard</span>
+            </Link>
+            <h1 className="mt-5 font-display text-2xl font-bold tracking-tight text-slate-900">
+              Log into your account
+            </h1>
+            <p className="mt-2 text-sm text-slate-500">
+              New to TrailGuard?{" "}
+              <Link href="/" className="font-medium text-blue-600 underline-offset-4 hover:underline">
+                Request access
+              </Link>
+            </p>
           </div>
 
-          <div>
-            <label className="label" htmlFor="password">Password</label>
-            <div className="relative">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1.5 block font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500" htmlFor="email">
+                Enter work email
+              </label>
               <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                {...register("password")}
-                className="input w-full pr-10"
-                placeholder="Enter password"
+                id="email"
+                type="email"
+                {...register("email")}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+                placeholder="analyst@trailguard.ai"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+              {errors.email && <p className="mt-1.5 text-xs text-red-600">{errors.email.message}</p>}
             </div>
-            {errors.password && (
-              <p className="text-red-400 text-xs mt-1">{errors.password.message}</p>
-            )}
+
+            <div>
+              <label className="mb-1.5 block font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500" htmlFor="password">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  {...register("password")}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 pr-10 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+                  placeholder="Enter password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {errors.password && <p className="mt-1.5 text-xs text-red-600">{errors.password.message}</p>}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-metal-blue group inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-all disabled:opacity-50"
+            >
+              {loading ? "Signing in..." : "Login"}
+              {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
+            </button>
+          </form>
+
+          <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-slate-500">Demo credentials</div>
+            <div className="mt-1.5 font-mono text-xs text-slate-700">analyst@trailguard.ai · demo1234</div>
           </div>
-
-          <button type="submit" disabled={loading} className="btn-primary w-full">
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
-
-          <p className="text-xs text-slate-500 text-center mt-4">
-            Demo credentials: analyst@trailguard.ai / demo1234
-          </p>
-        </form>
+        </div>
       </div>
     </div>
   )

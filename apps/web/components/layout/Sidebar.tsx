@@ -24,13 +24,15 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-60 bg-navy-800 border-r border-navy-600 flex flex-col h-screen fixed left-0 top-0">
-      <div className="p-5 border-b border-navy-600">
+    <aside className="w-60 bg-white border-r border-slate-200 flex flex-col h-screen fixed left-0 top-0">
+      <div className="p-5 border-b border-slate-200">
         <Link href="/dashboard" className="flex items-center gap-3">
-          <img src="/logo.svg" alt="TrailGuard AI" className="w-8 h-8" />
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-slate-900">
+            <img src="/logo.svg" alt="TrailGuard AI" className="w-6 h-6" />
+          </span>
           <div>
-            <h1 className="text-lg font-bold text-slate-100 leading-tight">TrailGuard</h1>
-            <p className="text-[10px] text-cyan-400 font-medium tracking-wider uppercase">AI</p>
+            <h1 className="text-lg font-bold text-slate-900 leading-tight">TrailGuard</h1>
+            <p className="text-[10px] text-blue-600 font-semibold tracking-wider uppercase">AI</p>
           </div>
         </Link>
       </div>
@@ -46,8 +48,8 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-cyan-600/10 text-cyan-400 border border-cyan-600/20"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-navy-700"
+                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
               )}
             >
               <Icon size={18} />
@@ -57,8 +59,8 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-navy-600">
-        <span className="inline-block bg-amber-500/10 text-amber-400 text-[10px] font-semibold px-2 py-1 rounded border border-amber-500/20 uppercase tracking-wider">
+      <div className="p-4 border-t border-slate-200">
+        <span className="inline-block bg-amber-100 text-amber-700 text-[10px] font-semibold px-2 py-1 rounded border border-amber-200 uppercase tracking-wider">
           Synthetic Demo Environment
         </span>
       </div>

@@ -7,13 +7,15 @@ from app.detection.structuring_detector import StructuringDetector
 
 
 def test_determine_risk_level():
+    # Thresholds calibrated to blended primary-max scoring: CRITICAL>=60,
+    # HIGH>=48, MEDIUM>=35.
     assert determine_risk_level(0) == "LOW"
     assert determine_risk_level(20) == "LOW"
     assert determine_risk_level(35) == "MEDIUM"
-    assert determine_risk_level(50) == "MEDIUM"
-    assert determine_risk_level(60) == "HIGH"
-    assert determine_risk_level(75) == "HIGH"
-    assert determine_risk_level(80) == "CRITICAL"
+    assert determine_risk_level(47) == "MEDIUM"
+    assert determine_risk_level(48) == "HIGH"
+    assert determine_risk_level(59) == "HIGH"
+    assert determine_risk_level(60) == "CRITICAL"
     assert determine_risk_level(100) == "CRITICAL"
 
 def test_risk_engine_initializes():

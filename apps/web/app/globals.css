@@ -2,19 +2,124 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Lenis smooth scroll */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+
 @layer base {
-  body { @apply bg-navy-900 text-slate-200 antialiased; }
+  body { @apply bg-slate-100 text-slate-700 antialiased; }
+  /* match the landing's typographic system: display font on headings */
+  h1, h2, h3, h4 { font-family: var(--font-display), system-ui, sans-serif; }
 }
 
 @layer components {
-  .btn-primary { @apply bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50; }
-  .btn-secondary { @apply bg-navy-600 hover:bg-navy-500 text-slate-200 px-4 py-2 rounded-lg font-medium transition-colors; }
-  .btn-danger { @apply bg-red-500 hover:bg-red-400 text-white px-4 py-2 rounded-lg font-medium transition-colors; }
-  .card { @apply bg-navy-800 border border-navy-600 rounded-xl p-6; }
-  .input { @apply bg-navy-700 border border-navy-600 rounded-lg px-3 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500; }
-  .label { @apply text-sm text-slate-400 mb-1 block; }
-  .badge-low { @apply bg-green-900/50 text-green-400 px-2 py-0.5 rounded text-xs font-medium; }
-  .badge-medium { @apply bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded text-xs font-medium; }
-  .badge-high { @apply bg-orange-900/50 text-orange-400 px-2 py-0.5 rounded text-xs font-medium; }
-  .badge-critical { @apply bg-red-900/50 text-red-400 px-2 py-0.5 rounded text-xs font-medium; }
+  .btn-primary { @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition-colors disabled:opacity-50; }
+  .btn-secondary { @apply bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg font-medium transition-colors; }
+  .btn-danger { @apply bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors; }
+  .card { @apply bg-white border border-slate-200 rounded-xl p-6 shadow-sm; }
+  .input { @apply bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500; }
+  .label { @apply text-sm text-slate-500 mb-1 block; }
+  .badge-low { @apply bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium; }
+  .badge-medium { @apply bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs font-medium; }
+  .badge-high { @apply bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-medium; }
+  .badge-critical { @apply bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium; }
+}
+
+/* ── Landing / auth design system: black base + sky-blue accent ───────── */
+@layer utilities {
+  /* faint isometric / grid texture */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(56,189,248,0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(56,189,248,0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+  .bg-grid-fade {
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 35%, transparent 75%);
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 35%, transparent 75%);
+  }
+  .bg-dots {
+    background-image: radial-gradient(rgba(125,211,252,0.10) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  /* grain overlay — fixed, full-viewport, a bit more present */
+  .grain::after {
+    content: ""; position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0.08;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  /* glow classes kept for compatibility but intentionally subtle now */
+  .text-glow-sky { text-shadow: none; }
+  .ring-glow-sky { box-shadow: 0 0 0 1px rgba(43,168,255,0.45); }
+
+  /* scroll reveal */
+  .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s cubic-bezier(.16,1,.3,1), transform 0.7s cubic-bezier(.16,1,.3,1); }
+  .reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .animate-marquee, .animate-float-slow, .animate-pulse-glow { animation: none !important; }
+  }
+
+  /* ── Metallic / physical "circuit-board" landing theme ──────────────── */
+  /* brushed off-white aluminium base plate */
+  .bg-metal {
+    background-color: #e4e8ec;
+    background-image:
+      radial-gradient(140% 90% at 50% -20%, #f6f8fa 0%, #e7ebef 42%, #d6dbe1 100%),
+      repeating-linear-gradient(112deg, rgba(255,255,255,0.35) 0px, rgba(255,255,255,0.35) 1px, transparent 1px, transparent 4px);
+    background-blend-mode: normal, soft-light;
+  }
+  /* faint right-angle circuit traces, etches into the plate (not a grid) */
+  .bg-traces {
+    background-image:
+      linear-gradient(to right, rgba(40,70,120,0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(40,70,120,0.05) 1px, transparent 1px);
+    background-size: 120px 120px, 120px 120px;
+    background-position: -1px -1px;
+  }
+  /* raised metal module / chip card */
+  .panel-raised {
+    background: linear-gradient(176deg, #fcfdfe 0%, #eef1f5 60%, #e6eaef 100%);
+    border: 1px solid rgba(20,32,55,0.10);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.95) inset,
+      0 -1px 0 rgba(20,32,55,0.04) inset,
+      0 22px 44px -22px rgba(26,40,68,0.40),
+      0 6px 14px -8px rgba(26,40,68,0.22);
+  }
+  .panel-flat {
+    background: linear-gradient(176deg, #f7f9fb 0%, #eceff3 100%);
+    border: 1px solid rgba(20,32,55,0.09);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 8px 22px -16px rgba(26,40,68,0.3);
+  }
+  /* recessed dark "screen" set into the metal */
+  .screen-inset {
+    background: linear-gradient(180deg, #0c1119 0%, #090c12 100%);
+    border: 1px solid rgba(8,12,20,0.6);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.10) inset,
+      0 2px 10px rgba(0,0,0,0.45) inset;
+  }
+  /* small etched mounting screw */
+  .screw {
+    background: radial-gradient(circle at 35% 30%, #fdfdfe, #c6ccd4 60%, #aab2bd 100%);
+    box-shadow: 0 1px 1px rgba(0,0,0,0.25), 0 0 0 1px rgba(20,32,55,0.08) inset;
+  }
+  /* tactile 3D blue button */
+  .btn-metal-blue {
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.45) inset,
+      0 10px 22px -8px rgba(37,99,235,0.55),
+      0 2px 6px -2px rgba(37,99,235,0.45);
+  }
+  .btn-metal-blue:hover {
+    background: linear-gradient(180deg, #4b8ef8 0%, #2f6ef0 100%);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.55) inset,
+      0 14px 28px -8px rgba(37,99,235,0.6),
+      0 3px 8px -2px rgba(37,99,235,0.5);
+  }
 }

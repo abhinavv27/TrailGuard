@@ -36,7 +36,7 @@ export default function AlertsPage() {
     try {
       const caseData = await api.alerts.createCase(alertId)
       toast.success("Investigation case created")
-      router.push(`/cases/${caseData.id}`)
+      router.push(`/cases/${caseData.case_id ?? caseData.id}`)
     } catch {
       toast.error("Failed to create investigation case")
     }
@@ -53,15 +53,15 @@ export default function AlertsPage() {
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-100">Alert Center</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Alert Center</h1>
         <p className="text-sm text-slate-500 mt-1">Monitor and investigate suspicious activity</p>
       </div>
 
       <Card className="mb-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <Filter size={16} className="text-slate-400" />
-            <span className="text-sm text-slate-400">Severity:</span>
+            <Filter size={16} className="text-slate-500" />
+            <span className="text-sm text-slate-500">Severity:</span>
           </div>
           <div className="flex gap-2">
             {severityOptions.map((opt) => (
@@ -70,8 +70,8 @@ export default function AlertsPage() {
                 onClick={() => { setSeverityFilter(opt); setPage(1) }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   severityFilter === opt
-                    ? "bg-cyan-600 text-white"
-                    : "bg-navy-700 text-slate-400 hover:text-slate-200"
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-500 hover:text-slate-800"
                 }`}
               >
                 {opt.charAt(0).toUpperCase() + opt.slice(1)}
@@ -87,7 +87,7 @@ export default function AlertsPage() {
         <>
           <div className="space-y-3 mb-6">
             {alerts.map((alert: any) => (
-              <Card key={alert.id} className="hover:border-navy-500 transition-colors">
+              <Card key={alert.id} className="hover:border-slate-300 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
@@ -103,7 +103,7 @@ export default function AlertsPage() {
                             : "text-green-400"
                         }
                       />
-                      <h3 className="text-sm font-medium text-slate-200">
+                      <h3 className="text-sm font-medium text-slate-800">
                         {alert.title || alert.event_type || alert.alert_type || "Suspicious Activity Detected"}
                       </h3>
                       <Badge variant={alert.severity?.toLowerCase()}>
@@ -114,7 +114,7 @@ export default function AlertsPage() {
                       <span>Entity: {alert.entity_id || alert.account_id || "N/A"}</span>
                       <span>Detector: {alert.detector_type || alert.event_type || "N/A"}</span>
                       {(alert.score !== undefined || alert.risk_score !== undefined) && (
-                        <span>Score: {((alert.score ?? alert.risk_score) * 100).toFixed(0)}%</span>
+                        <span>Score: {(alert.score ?? alert.risk_score).toFixed(0)}/100</span>
                       )}
                     </div>
                     {alert.reason_codes && alert.reason_codes.length > 0 && (
@@ -122,7 +122,7 @@ export default function AlertsPage() {
                         {alert.reason_codes.map((code: string, idx: number) => (
                           <span
                             key={idx}
-                            className="bg-navy-600 text-slate-300 text-[10px] px-2 py-0.5 rounded font-mono"
+                            className="bg-slate-200 text-slate-700 text-[10px] px-2 py-0.5 rounded font-mono"
                           >
                             {code}
                           </span>
@@ -156,7 +156,7 @@ export default function AlertsPage() {
             >
               <ChevronLeft size={16} className="mr-1" /> Previous
             </Button>
-            <span className="text-sm text-slate-400">Page {page}</span>
+            <span className="text-sm text-slate-500">Page {page}</span>
             <Button
               variant="ghost"
               size="sm"

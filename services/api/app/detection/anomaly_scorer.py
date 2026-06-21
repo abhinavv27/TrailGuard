@@ -1,10 +1,8 @@
 """Statistical anomaly scorer using Isolation Forest or robust z-score."""
 import logging
 import math
-import sys
-from datetime import datetime
-from statistics import median, stdev
-from typing import Any, Dict, List, Optional
+from statistics import stdev
+from typing import Dict, List, Optional
 
 from app.detection.base_detector import BaseDetector
 
@@ -52,83 +50,13 @@ class AnomalyScorer(BaseDetector):
         if not transactions or len(transactions) < 5:
             return None
 
-        amounts = [tx.get("amount", 0) for tx in transactions]
-        log_amounts = [
-            math.log(max(a, 0.01)) for a in amounts
-        ]
-
-        sender_counts = self._count_by_key(
-            transactions, "sender_account_id"
-        )
-        receiver_counts = self._count_by_key(
-            transactions, "receiver_account_id"
-        )
-
-        sender_velocities = [
-            sender_counts.get(tx.get("sender_account_id", ""), 0)
-            for tx in transactions
-        ]
-        receiver_velocities = [
-            receiver_counts.get(tx.get("receiver_account_id", ""), 0)
-            for tx in transactions
-        ]
+        anomaly_scores, confidence, _ = self._compute_anomaly_flags(transactions)
 
         unique_counterparties = set()
         for tx in transactions:
             unique_counterparties.add(tx.get("sender_account_id", ""))
             unique_counterparties.add(tx.get("receiver_account_id", ""))
         counterparty_count = len(unique_counterparties)
-
-        mean_amt = sum(amounts) / len(amounts)
-        if mean_amt > 0:
-            amount_zscores = [
-                (a - mean_amt) / max(stdev(amounts), 0.01)
-                for a in amounts
-            ]
-        else:
-            amount_zscores = [0] * len(amounts)
-
-        features = []
-        for i in range(len(transactions)):
-            features.append(
-                [
-                    log_amounts[i],
-                    amount_zscores[i],
-                    sender_velocities[i],
-                    receiver_velocities[i],
-                    counterparty_count / max(len(transactions), 1),
-                ]
-            )
-
-        num_samples = len(transactions)
-        use_if = (
-            _check_sklearn()
-            and num_samples >= self.min_for_isolation_forest
-        )
-
-        anomaly_scores = []
-        if use_if:
-            try:
-                model = IsolationForest(
-                    contamination=self.if_contamination,
-                    random_state=42,
-                    n_estimators=100,
-                )
-                predictions = model.fit_predict(features)
-                anomaly_scores = [
-                    1 if p == -1 else 0 for p in predictions
-                ]
-                confidence = "high"
-            except Exception as e:
-                logger.error(f"Isolation Forest failed: {e}")
-                use_if = False
-
-        if not use_if:
-            anomaly_scores = [
-                1 if abs(z) > self.z_score_threshold else 0
-                for z in amount_zscores
-            ]
-            confidence = "limited" if num_samples < 100 else "moderate"
 
         anomaly_count = sum(anomaly_scores)
         anomaly_ratio = anomaly_count / max(len(anomaly_scores), 1)
@@ -150,7 +78,6 @@ class AnomalyScorer(BaseDetector):
             ][:10]
             source_tx_ids.extend(anomaly_tx_ids)
 
-            method = "Isolation Forest" if use_if else "Z-score"
             reason_codes.append(
                 {
                     "code": "STATISTICAL_ANOMALY",
@@ -165,6 +92,79 @@ class AnomalyScorer(BaseDetector):
             "reason_codes": reason_codes,
             "source_transaction_ids": list(set(source_tx_ids)),
             "version": self.version,
+        }
+
+    def _compute_anomaly_flags(self, transactions: List[Dict]):
+        """Compute a 0/1 anomaly flag per transaction. Uses Isolation Forest
+        when there are enough samples (>=100), else robust z-score. Returns
+        (flags, confidence, used_isolation_forest)."""
+        amounts = [tx.get("amount", 0) for tx in transactions]
+        log_amounts = [math.log(max(a, 0.01)) for a in amounts]
+
+        sender_counts = self._count_by_key(transactions, "sender_account_id")
+        receiver_counts = self._count_by_key(transactions, "receiver_account_id")
+        sender_velocities = [
+            sender_counts.get(tx.get("sender_account_id", ""), 0) for tx in transactions
+        ]
+        receiver_velocities = [
+            receiver_counts.get(tx.get("receiver_account_id", ""), 0) for tx in transactions
+        ]
+
+        unique_counterparties = set()
+        for tx in transactions:
+            unique_counterparties.add(tx.get("sender_account_id", ""))
+            unique_counterparties.add(tx.get("receiver_account_id", ""))
+        counterparty_count = len(unique_counterparties)
+
+        mean_amt = sum(amounts) / len(amounts)
+        if mean_amt > 0:
+            amount_zscores = [
+                (a - mean_amt) / max(stdev(amounts), 0.01) for a in amounts
+            ]
+        else:
+            amount_zscores = [0] * len(amounts)
+
+        features = [
+            [
+                log_amounts[i],
+                amount_zscores[i],
+                sender_velocities[i],
+                receiver_velocities[i],
+                counterparty_count / max(len(transactions), 1),
+            ]
+            for i in range(len(transactions))
+        ]
+
+        num_samples = len(transactions)
+        use_if = _check_sklearn() and num_samples >= self.min_for_isolation_forest
+
+        if use_if:
+            try:
+                model = IsolationForest(
+                    contamination=self.if_contamination,
+                    random_state=42,
+                    n_estimators=100,
+                )
+                predictions = model.fit_predict(features)
+                return [1 if p == -1 else 0 for p in predictions], "high", True
+            except Exception as e:
+                logger.error(f"Isolation Forest failed: {e}")
+
+        flags = [1 if abs(z) > self.z_score_threshold else 0 for z in amount_zscores]
+        confidence = "limited" if num_samples < 100 else "moderate"
+        return flags, confidence, False
+
+    def flag_dataset(self, transactions: List[Dict]) -> set:
+        """Return the full (uncapped) set of anomalous transaction ids across
+        the whole dataset. Used by RiskEngine.prepare_dataset() so per-account
+        anomaly scoring reflects dataset-wide Isolation Forest results."""
+        if not transactions or len(transactions) < 5:
+            return set()
+        flags, _, _ = self._compute_anomaly_flags(transactions)
+        return {
+            transactions[i].get("id", "")
+            for i in range(len(flags))
+            if flags[i] == 1 and transactions[i].get("id")
         }
 
     def _count_by_key(
